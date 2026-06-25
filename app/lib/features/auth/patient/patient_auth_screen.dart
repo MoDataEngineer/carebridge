@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/env.dart';
+import '../../../core/routing/app_router.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 
 /// Placeholder patient auth (Phase 1).
@@ -29,7 +31,9 @@ class PatientAuthScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: () {}, // Phase 3: send OTP
+            // Placeholder sign-in: real OTP verification is Phase 11. For now
+            // this advances to the patient home so the Phase 3 core is usable.
+            onPressed: () => context.go(Routes.patientHome),
             child: const Text('Send OTP'),
           ),
           const SizedBox(height: 24),

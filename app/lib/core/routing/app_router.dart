@@ -7,6 +7,7 @@ import '../../features/auth/clinic/who_are_you_screen.dart';
 import '../../features/auth/diagnostic/diagnostic_login_screen.dart';
 import '../../features/auth/patient/patient_auth_screen.dart';
 import '../../features/entry/entry_screen.dart';
+import '../../features/patient/patient_home_screen.dart';
 
 /// Route names — role-based routing from the three-button entry screen (Section 2).
 class Routes {
@@ -14,6 +15,7 @@ class Routes {
 
   static const entry = '/';
   static const patientAuth = '/patient';
+  static const patientHome = '/patient/home';
   static const clinicLogin = '/clinic';
   static const whoAreYou = '/clinic/who-are-you';
   static const pinEntry = '/clinic/pin';
@@ -35,6 +37,10 @@ GoRouter createAppRouter() => GoRouter(
     GoRoute(
       path: Routes.patientAuth,
       builder: (_, __) => const PatientAuthScreen(),
+    ),
+    GoRoute(
+      path: Routes.patientHome,
+      builder: (_, __) => const PatientHomeScreen(),
     ),
     GoRoute(
       path: Routes.clinicLogin,
