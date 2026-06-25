@@ -1,20 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
+import 'session_controller.dart';
 
-/// Placeholder clinic login (Phase 1).
-/// Section 2.2: "Doctor" leads to a CLINIC-level login. ONE credential per clinic
-/// (registration/license number + phone/OTP). Doctors live UNDER the clinic.
+/// Clinic login (Section 2.2): ONE credential per clinic. On success it branches
+/// on the doctor count — solo clinics skip the "Who are you?" picker entirely
+/// (guarantee a); multi-doctor clinics go to the picker.
 ///
-/// The real session-scoping architecture (D1 PIN, D2 scoped JWT, solo auto-scope,
-/// "Who are you?" picker) is built in PHASE 2 — Phase 1 only lands the screens +
-/// navigation skeleton so Phase 2 has somewhere to attach.
-///
-/// STUB: no real auth. Needs ABDM/clinic-registry verification to make real.
-class ClinicLoginScreen extends StatelessWidget {
+/// OTP verification is still placeholder (real auth is Phase 11); the
+/// session-scoping architecture on top of it (D1 PIN, D2 scoped token) is real.
+class ClinicLoginScreen extends ConsumerStatefulWidget {
   const ClinicLoginScreen({super.key});
+
+  @override
+  ConsumerState<ClinicLoginScreen> createState() => _ClinicLoginScreenState();
+}
+
+class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
+  final _reg = TextEditingController();
+  final _phone = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _reg.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  Future<void> _continue() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final controller = ref.read(clinicSessionControllerProvider.notifier);
+      final result = await controller.login(
+        registrationNumber: _reg.text.trim(),
+        phone: _phone.text.trim(),
+      );
+      if (!mounted) return;
+      // Guarantee (a): solo clinic is auto-scoped — straight to PIN, no picker.
+      if (result.isSolo) {
+        context.push(Routes.pinEntry);
+      } else {
+        context.push(Routes.whoAreYou);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Login failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,16 +65,18 @@ class ClinicLoginScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const TextField(
-            decoration: InputDecoration(
+          TextField(
+            controller: _reg,
+            decoration: const InputDecoration(
               labelText: 'Clinic registration / license number',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 16),
-          const TextField(
+          TextField(
+            controller: _phone,
             keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: 'Registered mobile number',
               prefixText: '+91 ',
               border: OutlineInputBorder(),
@@ -41,16 +84,20 @@ class ClinicLoginScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            // Phase 2: after real login, branch on doctor count —
-            // solo => auto-scope (skip picker); multi => "Who are you?".
-            onPressed: () => context.push(Routes.whoAreYou),
-            child: const Text('Continue'),
+            onPressed: _busy ? null : _continue,
+            child: _busy
+                ? const SizedBox(
+                    height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Continue'),
           ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
           const SizedBox(height: 24),
           Text(
-            'Placeholder auth — clinic verification not wired. '
             'One login per clinic; doctors are added under it (Section 2.2). '
-            'Session scoping (PIN + scoped token) is built in Phase 2.',
+            'OTP is placeholder until Phase 11.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

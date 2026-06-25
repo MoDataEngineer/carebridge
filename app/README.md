@@ -16,14 +16,26 @@ flutter create .          # generates platform folders only; keeps lib/ & pubspe
 flutter pub get
 ```
 
-Then create your env file (never commit it):
+Then create your env files (never commit them — both are gitignored).
+
+**Client `app/.env` — CLIENT-SAFE values only.** This file is bundled into the
+app, so it must contain ONLY `SUPABASE_URL` + `SUPABASE_ANON_KEY` (the anon key is
+publishable). It is a declared asset and **must exist for the build to succeed**:
 
 ```bash
-cp ../.env.example .env    # fill SUPABASE_URL / SUPABASE_ANON_KEY, keep REQUIRE_ABHA=false
+cd app
+printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' "https://YOUR-REF.supabase.co" "YOUR-ANON-KEY" > .env
 ```
 
-The app boots in **placeholder mode** even without `.env` (falls back to
-`.env.example`), so you can run the scaffold immediately:
+**Root `./.env` — SERVER-ONLY secrets.** Never bundled into the client. Holds the
+`SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS) and future server secrets
+(`SUPABASE_JWT_SECRET`, `ANTHROPIC_API_KEY`, `FCM_SERVER_KEY`). Used only for CLI
+migrations, Edge Functions, and server scripts.
+
+> ⚠️ Never put the service_role key (or any server secret) in `app/.env` — it would
+> ship inside the client bundle and bypass all row-level security.
+
+Run the app:
 
 ```bash
 flutter run -d chrome     # web

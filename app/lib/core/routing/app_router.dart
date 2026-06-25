@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/clinic/clinic_home_screen.dart';
 import '../../features/auth/clinic/clinic_login_screen.dart';
 import '../../features/auth/clinic/pin_entry_screen.dart';
 import '../../features/auth/clinic/who_are_you_screen.dart';
@@ -16,6 +17,7 @@ class Routes {
   static const clinicLogin = '/clinic';
   static const whoAreYou = '/clinic/who-are-you';
   static const pinEntry = '/clinic/pin';
+  static const clinicHome = '/clinic/home';
   static const diagnosticLogin = '/diagnostic';
 }
 
@@ -45,6 +47,10 @@ GoRouter createAppRouter() => GoRouter(
     GoRoute(
       path: Routes.pinEntry,
       builder: (_, __) => const PinEntryScreen(),
+    ),
+    GoRoute(
+      path: Routes.clinicHome,
+      builder: (_, __) => const ClinicHomeScreen(),
     ),
     GoRoute(
       path: Routes.diagnosticLogin,

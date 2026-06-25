@@ -27,5 +27,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    # The running app reads real client config from .env (gitignored). It holds
+    # ONLY client-safe values: SUPABASE_URL + SUPABASE_ANON_KEY. Server-only
+    # secrets (service_role, JWT, Claude, FCM) live in the ROOT .env and are
+    # never bundled into the client. `.env` must exist to build — copy from
+    # .env.example. The committed .env.example stays as a reference/fallback.
+    - .env
     - .env.example
-    # NOTE: .env is intentionally NOT listed here and is gitignored.
