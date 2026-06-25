@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# CareBridge pre-commit guard — blocks committing secrets.
+# Activate (once per clone):  git config core.hooksPath .githooks
+#
+# Blocks the commit if any staged file:
+#   - is a real .env file (anything matching .env or .env.* EXCEPT .env.example), or
+#   - contains a Supabase/JWT-shaped secret (service_role / a long eyJ... JWT).
+set -euo pipefail
+
+fail=0
+
+# 1) Block tracked .env files (allow only *.env.example).
+env_files=$(git diff --cached --name-only --diff-filter=ACM \
+  | grep -E '(^|/)\.env($|\.[^/]*$)' \
+  | grep -vE '\.env\.example$' || true)
+if [ -n "$env_files" ]; then
+  echo "✋ pre-commit: refusing to commit env file(s) — secrets belong outside git:"
+  echo "$env_files" | sed 's/^/   - /'
+  fail=1
+fi
+
+# 2) Scan staged CONTENT for secret-shaped strings (added lines only).
+added=$(git diff --cached -U0 --diff-filter=ACM | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+if echo "$added" | grep -qiE '"?(service_role|SUPABASE_SERVICE_ROLE_KEY)"?'; then
+  echo "✋ pre-commit: a staged line mentions a service_role key. Remove it."
+  fail=1
+fi
+# A JWT (eyJ<base64>.<base64>...) — anon/service_role keys and minted tokens.
+if echo "$added" | grep -qE 'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'; then
+  echo "✋ pre-commit: a staged line looks like a JWT/API key (eyJ…). Remove it."
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "If this is a false positive, bypass intentionally with:  git commit --no-verify"
+  exit 1
+fi
+exit 0
