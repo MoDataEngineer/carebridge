@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
+import '../../doctor/doctor_models.dart';
+import '../../doctor/doctor_workspace_screen.dart';
 import 'session_controller.dart';
 
 /// Placeholder landing after a session is scoped. Confirms the active scope
@@ -39,6 +41,22 @@ class ClinicHomeScreen extends ConsumerWidget {
                 style: Theme.of(context).textTheme.bodySmall),
           ],
           const SizedBox(height: 24),
+          if (s != null)
+            FilledButton.icon(
+              onPressed: () {
+                final scope = DoctorScope(
+                  role: s.role,
+                  clinicId: s.clinicId,
+                  doctorId: s.doctorId,
+                );
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => DoctorWorkspaceScreen(scope: scope),
+                ));
+              },
+              icon: const Icon(Icons.people),
+              label: const Text('Open patients'),
+            ),
+          const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () {
               ref.read(clinicSessionControllerProvider.notifier).signOut();

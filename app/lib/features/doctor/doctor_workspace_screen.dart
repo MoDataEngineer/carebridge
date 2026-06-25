@@ -1,0 +1,233 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../shared/models/enums.dart';
+import 'add_visit_form.dart';
+import 'doctor_models.dart';
+import 'doctor_repository.dart';
+
+/// Doctor-core workspace (Section 5.2): scoped patient search, a tabbed patient
+/// view, and (doctor-scoped only) add-visit. The list of patients returned by a
+/// search is decided by RLS from the active scope — this screen never filters by
+/// scope itself. The only scope-driven UI decision is whether to offer writing
+/// (AC-9): admin sessions can view but not author clinical notes.
+class DoctorWorkspaceScreen extends ConsumerStatefulWidget {
+  const DoctorWorkspaceScreen({super.key, required this.scope});
+
+  final DoctorScope scope;
+
+  @override
+  ConsumerState<DoctorWorkspaceScreen> createState() => _DoctorWorkspaceScreenState();
+}
+
+class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
+  final _query = TextEditingController();
+  Future<List<PatientSearchResult>>? _results;
+  PatientSearchResult? _selected;
+
+  void _search() {
+    setState(() {
+      _selected = null;
+      _results = ref.read(doctorRepositoryProvider).searchPatients(_query.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = widget.scope;
+    final scopeLabel = scope.role == ActiveRole.admin
+        ? 'Admin · all clinic patients'
+        : 'Doctor · your patients';
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Patients')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _selected == null ? _searchView(scopeLabel) : _detailView(scope),
+      ),
+    );
+  }
+
+  Widget _searchView(String scopeLabel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(scopeLabel, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _query,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _search(),
+          decoration: const InputDecoration(
+            labelText: 'Search by name, phone, or ABHA',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.search),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(onPressed: _search, child: const Text('Search')),
+        const SizedBox(height: 16),
+        Expanded(
+          child: _results == null
+              ? const Center(child: Text('Search for a patient to begin.'))
+              : FutureBuilder<List<PatientSearchResult>>(
+                  future: _results,
+                  builder: (context, snap) {
+                    if (snap.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final list = snap.data ?? const [];
+                    if (list.isEmpty) {
+                      return const Center(child: Text('No patients match your search.'));
+                    }
+                    return ListView.separated(
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final p = list[i];
+                        return ListTile(
+                          leading: const Icon(Icons.person),
+                          title: Text(p.name),
+                          subtitle: Text(p.abhaId == null
+                              ? p.phone
+                              : '${p.phone} · ${p.abhaId}'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => setState(() => _selected = p),
+                        );
+                      },
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _detailView(DoctorScope scope) {
+    final p = _selected!;
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _selected = null),
+              ),
+              Expanded(
+                child: Text(p.name, style: Theme.of(context).textTheme.titleMedium),
+              ),
+            ],
+          ),
+          const TabBar(tabs: [Tab(text: 'History'), Tab(text: 'Add visit')]),
+          const SizedBox(height: 8),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _historyTab(p),
+                scope.canWrite
+                    ? SingleChildScrollView(
+                        child: AddVisitForm(
+                          scope: scope,
+                          patient: p,
+                          onSaved: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Visit saved')));
+                            // Bounce back to History so the new visit shows.
+                            setState(() {});
+                            DefaultTabController.of(context).animateTo(0);
+                          },
+                        ),
+                      )
+                    : _adminCannotWrite(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyTab(PatientSearchResult p) {
+    return FutureBuilder<List<VisitRecord>>(
+      // Re-read each build so a just-saved visit appears.
+      future: ref.read(doctorRepositoryProvider).patientHistory(p.id),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final visits = snap.data ?? const [];
+        if (visits.isEmpty) {
+          return const Center(child: Text('No visits recorded yet.'));
+        }
+        return ListView.builder(
+          itemCount: visits.length,
+          itemBuilder: (context, i) {
+            final v = visits[i];
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(v.visitDate.toString().substring(0, 10),
+                        style: Theme.of(context).textTheme.labelSmall),
+                    Text(v.diagnosis ?? '(no diagnosis)',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    if (v.notes != null && v.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(v.notes!),
+                    ],
+                    for (final rx in v.prescriptions)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '• ${rx.drugName}'
+                          '${rx.dosage != null ? ' ${rx.dosage}' : ''}'
+                          ' · ${rx.scheduleLabel}'
+                          '${rx.durationDays != null ? ' · ${rx.durationDays}d' : ''}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    if (v.followUpDate != null) ...[
+                      const SizedBox(height: 4),
+                      Text('Follow-up: ${v.followUpDate!.toString().substring(0, 10)}',
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _adminCannotWrite() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.lock_outline, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            'Writing a visit requires a specific doctor identity (AC-9).\n'
+            'Sign in as a doctor from the "Who are you?" screen to add clinical notes.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
