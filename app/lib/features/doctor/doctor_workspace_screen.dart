@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/enums.dart';
+import '../diagnostics/test_orders_view.dart';
 import 'add_visit_form.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
@@ -228,7 +229,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
   Widget _detailView(DoctorScope scope) {
     final p = _selected!;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -243,12 +244,18 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
               ),
             ],
           ),
-          const TabBar(tabs: [Tab(text: 'History'), Tab(text: 'Add visit')]),
+          const TabBar(tabs: [
+            Tab(text: 'History'),
+            Tab(text: 'Tests'),
+            Tab(text: 'Add visit'),
+          ]),
           const SizedBox(height: 8),
           Expanded(
             child: TabBarView(
               children: [
                 _historyTab(p),
+                // Tests tab: view orders + (doctor-scoped) order a new test.
+                TestOrdersView(patientId: p.id, canOrder: scope.canWrite),
                 scope.canWrite
                     ? SingleChildScrollView(
                         child: AddVisitForm(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/routing/app_router.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 
 /// Placeholder diagnostic partner login (Phase 1).
@@ -34,7 +36,8 @@ class DiagnosticLoginScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: () {}, // Phase 6: real diagnostic portal entry
+            // Placeholder auth (Phase 11 makes it real); enters the portal.
+            onPressed: () => context.go(Routes.diagnosticPortal),
             child: const Text('Continue'),
           ),
           const SizedBox(height: 24),

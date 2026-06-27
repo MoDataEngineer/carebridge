@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
 import '../consent/privacy_tab.dart';
+import '../diagnostics/test_orders_view.dart';
 import 'book_appointment_tab.dart';
 import 'history_tab.dart';
 import 'profile_tab.dart';
@@ -16,7 +17,7 @@ class PatientHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('My health record'),
@@ -33,6 +34,7 @@ class PatientHomeScreen extends ConsumerWidget {
               Tab(icon: Icon(Icons.person), text: 'Profile'),
               Tab(icon: Icon(Icons.event), text: 'Book'),
               Tab(icon: Icon(Icons.history), text: 'History'),
+              Tab(icon: Icon(Icons.science), text: 'Tests'),
               Tab(icon: Icon(Icons.shield), text: 'Privacy'),
             ],
           ),
@@ -42,6 +44,7 @@ class PatientHomeScreen extends ConsumerWidget {
             ProfileTab(),
             BookAppointmentTab(),
             HistoryTab(),
+            TestOrdersView(), // my own orders (patientId null → RLS scopes)
             PrivacyTab(),
           ],
         ),
