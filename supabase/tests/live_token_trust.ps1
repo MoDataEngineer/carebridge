@@ -17,6 +17,10 @@
 # Run:  pwsh supabase/tests/live_token_trust.ps1   (from repo root)
 
 $ErrorActionPreference = "Stop"
+# Supabase rejects SECRET keys when the User-Agent looks like a browser (returns
+# 401). PowerShell's default UA contains "Mozilla", so force a non-browser UA on
+# every request. (Deno Edge Functions already send a non-browser UA in prod.)
+$PSDefaultParameterValues['Invoke-RestMethod:UserAgent'] = 'carebridge-server/1.0'
 $root  = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent  # repo root
 function Get-EnvVal($file, $key) {
   (Get-Content (Join-Path $root $file) | Where-Object { $_ -match "^$key=" }) `
