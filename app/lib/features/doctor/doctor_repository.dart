@@ -30,6 +30,16 @@ abstract class DoctorRepository {
     required String clinicId,
     required NewVisit visit,
   });
+
+  /// Flow A: redeem a patient's in-person consent code → standing grant.
+  /// Returns the now-accessible patient id.
+  Future<String> redeemConsentCode(String code);
+
+  /// Flow B: look up a patient by exact phone/ABHA to request access.
+  Future<List<PatientSearchResult>> lookupForRequest(String query);
+
+  /// Flow B: send an access request to a patient (creates a pending grant).
+  Future<void> requestAccess(String patientId);
 }
 
 class SupabaseDoctorRepository implements DoctorRepository {
@@ -109,6 +119,29 @@ class SupabaseDoctorRepository implements DoctorRepository {
       ]);
     }
   }
+
+  @override
+  Future<String> redeemConsentCode(String code) async {
+    final res = await _client
+        .rpc('carebridge_redeem_consent_code', params: {'p_code': code.trim()});
+    return res as String; // patient_id
+  }
+
+  @override
+  Future<List<PatientSearchResult>> lookupForRequest(String query) async {
+    final res = await _client.rpc(
+      'carebridge_lookup_patient_for_request',
+      params: {'p_query': query.trim()},
+    );
+    return [
+      for (final m in (res as List))
+        PatientSearchResult.fromMap(m as Map<String, dynamic>)
+    ];
+  }
+
+  @override
+  Future<void> requestAccess(String patientId) =>
+      _client.rpc('carebridge_request_access', params: {'p_patient': patientId});
 }
 
 final doctorRepositoryProvider = Provider<DoctorRepository>((ref) {

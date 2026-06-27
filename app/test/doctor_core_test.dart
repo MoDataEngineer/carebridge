@@ -54,6 +54,15 @@ class _FakeDoctorRepo implements DoctorRepository {
   }) async {
     writes.add((patientId: patientId, doctorId: doctorId));
   }
+
+  @override
+  Future<String> redeemConsentCode(String code) async => 'p1';
+
+  @override
+  Future<List<PatientSearchResult>> lookupForRequest(String query) async => const [];
+
+  @override
+  Future<void> requestAccess(String patientId) async {}
 }
 
 Widget _harness(_FakeDoctorRepo repo, DoctorScope scope) {
