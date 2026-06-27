@@ -273,3 +273,33 @@ notifications
 - Keep one Flutter codebase — do not fork separate web/mobile/role-specific projects.
 - Flag clearly (don't silently skip) anything depending on credentials/APIs not yet available (ABDM sandbox keys, Claude API key, FCM config) — stub it and note what's needed to make it real.
 - If anything in this spec seems contradictory or underspecified once you're implementing it, stop and ask the founder rather than guessing — several decisions here (admin inherited visibility, clinical-accountability gating) were explicit judgment calls, not arbitrary defaults, and silently reinterpreting them could break the trust model the whole app depends on.
+
+## 13. Coding guidelines — Karpathy skills (added 2026-06-27)
+
+> Source: andrej-karpathy-skills/CLAUDE.md. Behavioral guidelines to reduce common
+> LLM coding mistakes. They bias toward caution over speed; for trivial tasks, use
+> judgment. These COMPLEMENT — they do not override — Sections 1–12 above.
+
+**1. Think Before Coding** — Don't assume; don't hide confusion; surface tradeoffs.
+State assumptions explicitly and ask when uncertain. If multiple interpretations
+exist, present them — don't pick silently. If a simpler approach exists, say so. If
+something is unclear, stop, name what's confusing, and ask. (Reinforces Section 12's
+"stop and ask rather than guessing".)
+
+**2. Simplicity First** — Minimum code that solves the problem; nothing speculative.
+No features beyond what was asked, no abstractions for single-use code, no unrequested
+"flexibility/configurability", no error handling for impossible scenarios. If 200 lines
+could be 50, rewrite. Test: "Would a senior engineer call this overcomplicated?"
+
+**3. Surgical Changes** — Touch only what you must; clean up only your own mess. Don't
+"improve" adjacent code, don't refactor what isn't broken, match existing style. Remove
+only the imports/vars/functions YOUR changes orphaned; mention pre-existing dead code
+rather than deleting it. Every changed line should trace to the request.
+
+**4. Goal-Driven Execution** — Define success criteria, then loop until verified. Turn
+tasks into verifiable goals ("add validation" → "write tests for invalid inputs, then
+make them pass"). For multi-step work, state a brief plan with a verify check per step.
+(Matches this project's pattern of pairing every phase with passing tests.)
+
+**Working if:** fewer unnecessary diffs, fewer rewrites from overcomplication, and
+clarifying questions come before implementation rather than after mistakes.

@@ -87,22 +87,34 @@ Keep B documented but prefer A.
 
 ---
 
+## Decisions made during execution (2026-06-27)
+
+- **Clinic identity:** each clinic is now a real **GoTrue auth user**
+  (service-provisioned email `clinic.<reg>@carebridge.internal` + password),
+  linked via `clinics.auth_user_id`. Required because the hook + `scope_sessions`
+  key on `auth.uid()`, and only GoTrue-issued tokens trigger the hook. Real
+  phone-OTP login stays Phase 11.
+- **Clinic password storage:** stored **encrypted in Supabase Vault**, read back
+  only by `service_role` via SECURITY DEFINER RPCs (`carebridge_set/get_clinic_secret`,
+  migration 0008); execute revoked from anon/authenticated/public. Never returned
+  to a client, never logged. Verified: round-trip + client-role execute denied.
+
 ## Migration checklist (execute in order, pre-Phase 5)
 
-- [ ] 1. Dashboard: add an asymmetric (ECC) signing key; make it the **current**
-        signing key. Legacy HS256 becomes **verify-only / standby** (do NOT revoke yet).
-- [ ] 2. Create the `scope_sessions` table (migration) + RLS so only the owning
-        `auth.uid()` row is touched; service role writes it.
-- [ ] 3. Implement + register the **Custom Access Token Hook** (Option A) injecting
-        `clinic_id` / `active_role` / `active_doctor_id`.
-- [ ] 4. Rework `mint-scope-token`: `scope` action verifies PIN (existing RPC) then
-        **upserts `scope_sessions`** and triggers a session refresh — remove HS256
-        `signToken()`. Keep `login` (roster) action.
-- [ ] 5. **Verify end-to-end with LIVE tokens:** re-run the Section 12 trust tests
-        (b)/(c) against real GoTrue-issued asymmetric tokens (not `set_config`),
-        plus a doctor→admin switch test. This is the acceptance gate.
+- [x] 1. Asymmetric ECC (P-256) signing key is **current**; legacy HS256 is
+        **verify-only / previous** (not revoked). Verified: new tokens are `ES256`.
+- [x] 2. `scope_sessions` table + RLS (migration 0006) + `clinics.auth_user_id`.
+- [x] 3. Custom Access Token Hook (migration 0007) registered in the dashboard,
+        injecting `clinic_id` / `active_role` / `active_doctor_id`.
+- [x] 4. `mint-scope-token` reworked: `login` = Vault-backed GoTrue sign-in;
+        `scope` verifies PIN then **upserts `scope_sessions`** (client refreshes).
+        HS256 `signToken()` removed entirely. (Deploy at step 6.)
+- [x] 5. **LIVE-token acceptance gate PASSED** (`supabase/tests/live_token_trust.ps1`):
+        trust (b)/(c) + doctor↔admin switch against real ES256 tokens, claims via
+        `auth.jwt()`. `LIVE_TOKEN_TRUST_OK`.
 - [ ] 6. Switch keys in app/config: client → **publishable** key (`app/.env`);
-        server → **secret** key (root `.env`). Update both env files.
+        server → **secret** key (root `.env`). Update both env files + Edge Function
+        secrets + test scripts. Also fix `SUPABASE_URL` (`/rest/v1/` suffix). Re-run gate.
 - [ ] 7. **Disable/revoke the legacy JWT secret.** Nothing depends on it now →
         the leaked `service_role` key is finally inert. ✅ exposure eliminated.
 - [ ] 8. Confirm RLS helpers unchanged (Option A) and all Phase 2 tests still pass.

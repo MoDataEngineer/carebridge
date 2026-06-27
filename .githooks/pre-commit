@@ -4,7 +4,9 @@
 #
 # Blocks the commit if any staged file:
 #   - is a real .env file (anything matching .env or .env.* EXCEPT .env.example), or
-#   - contains a Supabase/JWT-shaped secret (service_role / a long eyJ... JWT).
+#   - contains a Supabase/JWT-shaped secret VALUE (a long eyJ... JWT, or an
+#     sb_secret_… secret key). Mentioning an identifier like SERVICE_ROLE_KEY by
+#     name is fine — only actual secret values are blocked.
 set -euo pipefail
 
 fail=0
@@ -19,15 +21,19 @@ if [ -n "$env_files" ]; then
   fail=1
 fi
 
-# 2) Scan staged CONTENT for secret-shaped strings (added lines only).
+# 2) Scan staged CONTENT for secret-shaped VALUES (added lines only).
+#    Match on the shape of the secret itself, NOT on identifiers like
+#    SUPABASE_SERVICE_ROLE_KEY — those are referenced legitimately all over the
+#    server code and produce false positives.
 added=$(git diff --cached -U0 --diff-filter=ACM | grep -E '^\+' | grep -vE '^\+\+\+' || true)
-if echo "$added" | grep -qiE '"?(service_role|SUPABASE_SERVICE_ROLE_KEY)"?'; then
-  echo "✋ pre-commit: a staged line mentions a service_role key. Remove it."
-  fail=1
-fi
-# A JWT (eyJ<base64>.<base64>...) — anon/service_role keys and minted tokens.
+# A JWT (eyJ<base64>.<base64>...) — legacy anon/service_role keys and HS256 tokens.
 if echo "$added" | grep -qE 'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'; then
   echo "✋ pre-commit: a staged line looks like a JWT/API key (eyJ…). Remove it."
+  fail=1
+fi
+# A new-format Supabase secret key (sb_secret_…). Not a JWT, so caught separately.
+if echo "$added" | grep -qE 'sb_secret_[A-Za-z0-9_-]{8,}'; then
+  echo "✋ pre-commit: a staged line contains a Supabase secret key (sb_secret_…). Remove it."
   fail=1
 fi
 
