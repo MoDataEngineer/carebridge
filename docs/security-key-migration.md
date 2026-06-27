@@ -1,10 +1,10 @@
 # Phase 4.5 (pre-Phase 5) — Retire legacy HS256 secret, move to asymmetric JWT signing
 
-> **Status:** PLANNED — not started. Scheduled to run **after Phase 4, before Phase 5**.
-> Phase 5 (access-grant / consent core) must not be built on an unverified token path
-> that depends on a leaked-but-un-rotatable secret.
+> **Status:** ✅ COMPLETE (2026-06-27). All 8 steps done; live asymmetric token
+> path proven; legacy HS256 secret revoked → leaked `service_role` key is inert.
+> Phase 5 (access-grant / consent core) is now unblocked.
 >
-> **Owner:** Mohan · **Created:** 2026-06-25 · **Blocks:** Phase 5
+> **Owner:** Mohan · **Created:** 2026-06-25 · **Completed:** 2026-06-27 · **Blocked:** Phase 5 (now cleared)
 
 ## Why this exists
 
@@ -112,12 +112,17 @@ Keep B documented but prefer A.
 - [x] 5. **LIVE-token acceptance gate PASSED** (`supabase/tests/live_token_trust.ps1`):
         trust (b)/(c) + doctor↔admin switch against real ES256 tokens, claims via
         `auth.jwt()`. `LIVE_TOKEN_TRUST_OK`.
-- [ ] 6. Switch keys in app/config: client → **publishable** key (`app/.env`);
-        server → **secret** key (root `.env`). Update both env files + Edge Function
-        secrets + test scripts. Also fix `SUPABASE_URL` (`/rest/v1/` suffix). Re-run gate.
-- [ ] 7. **Disable/revoke the legacy JWT secret.** Nothing depends on it now →
-        the leaked `service_role` key is finally inert. ✅ exposure eliminated.
-- [ ] 8. Confirm RLS helpers unchanged (Option A) and all Phase 2 tests still pass.
+- [x] 6. Switched keys: client → **publishable** (`app/.env` `SUPABASE_ANON_KEY`);
+        server → **secret** (root `.env` `SUPABASE_SERVICE_ROLE_KEY`). Fixed
+        `SUPABASE_URL` (`/rest/v1/` suffix removed). Gate re-run green on new keys.
+        ⚠️ Edge Function deploy (still pending) must `supabase secrets set` the new
+        values. NOTE: Supabase secret keys 401 on browser-like User-Agent — the test
+        harness forces a non-browser UA; Deno Edge Functions are unaffected.
+- [x] 7. Revoked the legacy JWT secret (7a: disabled legacy anon/service_role API
+        keys, gate stayed green → nothing depended on them; 7b: revoked the legacy
+        HS256 signing secret). Leaked `service_role` key is now **inert**. ✅
+- [x] 8. RLS helpers UNCHANGED (Option A). Re-verified: `rls_trust` (b)/(c)/AC-9,
+        `doctor_core_rls`, `patient_rls` all PASS; `flutter test` 12/12.
 
 ## Later, optional — belt-and-suspenders hardening (not blocking)
 
