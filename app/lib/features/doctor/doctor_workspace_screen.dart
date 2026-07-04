@@ -7,6 +7,8 @@ import '../summary/summary_tab.dart';
 import 'add_visit_form.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
+import 'follow_ups_screen.dart';
+import 'upgrade_screen.dart';
 
 /// Doctor-core workspace (Section 5.2): scoped patient search, a tabbed patient
 /// view, and (doctor-scoped only) add-visit. The list of patients returned by a
@@ -51,6 +53,17 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
       appBar: AppBar(
         title: const Text('Patients'),
         actions: [
+          // Follow-up tracker (paid, doctor-scoped). Free tier sees the
+          // Upgrade stub instead (Section 9).
+          if (scope.canWrite)
+            IconButton(
+              tooltip: 'Follow-ups',
+              icon: const Icon(Icons.event_repeat),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) =>
+                    scope.paid ? const FollowUpsScreen() : const UpgradeScreen(),
+              )),
+            ),
           // Flow A/B initiation needs a specific doctor identity (AC-9); hide for admin.
           if (scope.canWrite) ...[
             IconButton(
@@ -256,8 +269,11 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
             child: TabBarView(
               children: [
                 // One-touch AI summary (Section 8) — doctor AND admin scopes,
-                // subject to the same grant check (enforced server-side).
-                PatientSummaryTab(patientId: p.id),
+                // subject to the grant check (server-side). Paid tier only
+                // (Section 9); free tier sees the upgrade prompt.
+                scope.paid
+                    ? PatientSummaryTab(patientId: p.id)
+                    : _upgradePrompt('AI summary is a Pro feature.'),
                 _historyTab(p),
                 // Tests tab: view orders + (doctor-scoped) order a new test.
                 TestOrdersView(patientId: p.id, canOrder: scope.canWrite),
@@ -337,6 +353,26 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _upgradePrompt(String message) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.workspace_premium, size: 40),
+          const SizedBox(height: 12),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const UpgradeScreen())),
+            child: const Text('See CareBridge Pro'),
+          ),
+        ],
+      ),
     );
   }
 

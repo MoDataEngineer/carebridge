@@ -49,6 +49,7 @@ class ClinicHomeScreen extends ConsumerWidget {
                   role: s.role,
                   clinicId: s.clinicId,
                   doctorId: s.doctorId,
+                  paid: s.paid,
                 );
                 Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => DoctorWorkspaceScreen(scope: scope),

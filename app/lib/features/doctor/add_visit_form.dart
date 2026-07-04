@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/enums.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
+import 'paid_tools_repository.dart';
+import 'rx_voice_parser.dart';
 
 /// Add-visit form (Section 5.2) — doctor-scoped only (AC-9). Captures a diagnosis,
 /// optional notes/follow-up, and one or more prescription lines using the D5
@@ -30,6 +32,141 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
   DateTime? _followUp;
   final List<_PrescriptionDraft> _rx = [_PrescriptionDraft()];
   bool _saving = false;
+
+  // Paid tools (Section 9): drug autocomplete + templates + voice input.
+  List<String> _drugNames = const [];
+  List<RxTemplate> _templates = const [];
+  bool _listening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.scope.paid) {
+      // Best-effort loads; the form works without them.
+      ref.read(paidToolsRepositoryProvider).myDrugNames().then((v) {
+        if (mounted) setState(() => _drugNames = v);
+      }).catchError((_) {});
+      ref.read(paidToolsRepositoryProvider).templates().then((v) {
+        if (mounted) setState(() => _templates = v);
+      }).catchError((_) {});
+    }
+  }
+
+  /// Voice prescription (paid, D6): dictation -> deterministic parse ->
+  /// filled draft the doctor MUST review — never auto-saved.
+  Future<void> _voiceInput() async {
+    final voice = ref.read(voiceInputProvider);
+    final ok = await voice.init();
+    if (!ok) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Microphone/speech recognition unavailable')));
+      }
+      return;
+    }
+    setState(() => _listening = true);
+    await voice.listen((text, isFinal) {
+      if (!isFinal || !mounted) return;
+      setState(() => _listening = false);
+      final parsed = parseSpokenPrescription(text);
+      if (parsed == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Could not understand: "$text" — try again')));
+        return;
+      }
+      setState(() {
+        final d = _emptyOrNewDraft();
+        d.drug.text = parsed.drugName;
+        if (parsed.dosage != null) d.dosage.text = parsed.dosage!;
+        if (parsed.durationDays != null) {
+          d.durationDays.text = '${parsed.durationDays}';
+        }
+        parsed.schedule.forEach((k, v) => d.schedule[k] = v);
+        d.food = switch (parsed.relationToFood) {
+          'before' => FoodRelation.before,
+          'after' => FoodRelation.after,
+          'with' => FoodRelation.withFood,
+          _ => FoodRelation.none,
+        };
+      });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Heard you — review the prescription before saving')));
+    });
+  }
+
+  _PrescriptionDraft _emptyOrNewDraft() {
+    final empty = _rx.where((d) => d.drug.text.trim().isEmpty).firstOrNull;
+    if (empty != null) return empty;
+    final d = _PrescriptionDraft();
+    _rx.add(d);
+    return d;
+  }
+
+  Future<void> _saveAsTemplate() async {
+    final items = _rx
+        .where((d) => d.drug.text.trim().isNotEmpty)
+        .map((d) => {
+              'drug_name': d.drug.text.trim(),
+              'dosage': d.dosage.text.trim(),
+              'schedule': Map.of(d.schedule),
+              'duration_days': int.tryParse(d.durationDays.text.trim()),
+            })
+        .toList();
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Add at least one prescription first')));
+      return;
+    }
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Save as template'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Template name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (ok != true || ctrl.text.trim().isEmpty) return;
+    try {
+      await ref
+          .read(paidToolsRepositoryProvider)
+          .saveTemplate(ctrl.text.trim(), items);
+      final refreshed = await ref.read(paidToolsRepositoryProvider).templates();
+      if (mounted) {
+        setState(() => _templates = refreshed);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Template saved')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not save template: $e')));
+      }
+    }
+  }
+
+  void _applyTemplate(RxTemplate t) {
+    setState(() {
+      for (final item in t.items) {
+        final d = _emptyOrNewDraft();
+        d.drug.text = (item['drug_name'] ?? '') as String;
+        d.dosage.text = (item['dosage'] ?? '') as String;
+        final dur = item['duration_days'];
+        d.durationDays.text = dur == null ? '' : '$dur';
+        final sched = (item['schedule'] ?? const {}) as Map;
+        sched.forEach((k, v) {
+          if (d.schedule.containsKey('$k')) d.schedule['$k'] = v == true;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -131,7 +268,42 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
           ),
         ),
         const Divider(height: 24),
-        Text('Prescriptions', style: Theme.of(context).textTheme.titleSmall),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Prescriptions',
+                  style: Theme.of(context).textTheme.titleSmall),
+            ),
+            // Paid tools (Section 9): voice + templates.
+            if (widget.scope.paid) ...[
+              IconButton(
+                tooltip: 'Voice prescription',
+                icon: Icon(_listening ? Icons.mic : Icons.mic_none,
+                    color: _listening
+                        ? Theme.of(context).colorScheme.error
+                        : null),
+                onPressed: _voiceInput,
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Templates',
+                icon: const Icon(Icons.snippet_folder_outlined),
+                onSelected: (v) {
+                  if (v == '__save__') {
+                    _saveAsTemplate();
+                  } else {
+                    _applyTemplate(_templates.firstWhere((t) => t.id == v));
+                  }
+                },
+                itemBuilder: (_) => [
+                  for (final t in _templates)
+                    PopupMenuItem(value: t.id, child: Text(t.name)),
+                  const PopupMenuItem(
+                      value: '__save__', child: Text('Save current as template…')),
+                ],
+              ),
+            ],
+          ],
+        ),
         const SizedBox(height: 8),
         for (var i = 0; i < _rx.length; i++) _prescriptionCard(i),
         Align(
@@ -163,9 +335,44 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: d.drug,
-              decoration: const InputDecoration(labelText: 'Drug name'),
+            // Paid: autocomplete from this doctor's own prescribing history.
+            RawAutocomplete<String>(
+              textEditingController: d.drug,
+              focusNode: d.focus,
+              optionsBuilder: (v) {
+                if (!widget.scope.paid || v.text.trim().length < 2) {
+                  return const Iterable<String>.empty();
+                }
+                final q = v.text.trim().toLowerCase();
+                return _drugNames.where((n) => n.toLowerCase().contains(q));
+              },
+              onSelected: (v) => setState(() => d.drug.text = v),
+              fieldViewBuilder: (context, ctrl, focus, onSubmit) => TextField(
+                controller: ctrl,
+                focusNode: focus,
+                decoration: const InputDecoration(labelText: 'Drug name'),
+              ),
+              optionsViewBuilder: (context, onSelected, options) => Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  elevation: 4,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 180, maxWidth: 320),
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      children: [
+                        for (final o in options)
+                          ListTile(
+                            dense: true,
+                            title: Text(o),
+                            onTap: () => onSelected(o),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
             TextField(
               controller: d.dosage,
@@ -226,6 +433,7 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
 /// Mutable per-line editing state for one prescription card.
 class _PrescriptionDraft {
   final drug = TextEditingController();
+  final focus = FocusNode();
   final dosage = TextEditingController();
   final durationDays = TextEditingController();
   final Map<String, bool> schedule = {'morning': false, 'afternoon': false, 'night': false};
@@ -241,6 +449,7 @@ class _PrescriptionDraft {
 
   void dispose() {
     drug.dispose();
+    focus.dispose();
     dosage.dispose();
     durationDays.dispose();
   }

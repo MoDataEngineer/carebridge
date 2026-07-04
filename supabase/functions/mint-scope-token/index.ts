@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     // PLACEHOLDER: real phone/OTP verification lands in Phase 11.
     const { data: clinic, error: cErr } = await admin
       .from("clinics")
-      .select("id, name, auth_user_id")
+      .select("id, name, auth_user_id, subscription_status")
       .eq("registration_number", reg)
       .maybeSingle();
     if (cErr) return json({ error: "lookup_failed" }, 500);
@@ -178,6 +178,7 @@ Deno.serve(async (req) => {
     return json({
       clinic_id: clinic.id,
       clinic_name: clinic.name,
+      subscription_status: clinic.subscription_status ?? "free",
       doctors: doctors ?? [],
       is_solo: (doctors ?? []).length === 1,
       access_token: session.session.access_token,

@@ -72,6 +72,7 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
       clinicId: data['clinic_id'] as String,
       clinicName: (data['clinic_name'] ?? '') as String,
       baseToken: (data['access_token'] ?? '') as String,
+      paid: data['subscription_status'] == 'paid',
       doctors: ((data['doctors'] ?? []) as List)
           .map((e) => DoctorSummary.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -100,6 +101,7 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
       clinicId: data['clinic_id'] as String,
       clinicName: (data['clinic_name'] ?? '') as String,
       baseToken: (data['access_token'] ?? '') as String,
+      paid: data['subscription_status'] == 'paid',
       doctors: ((data['doctors'] ?? []) as List)
           .map((e) => DoctorSummary.fromMap(e as Map<String, dynamic>))
           .toList(),

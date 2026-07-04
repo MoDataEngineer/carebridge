@@ -83,6 +83,7 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
         clinicId: login.clinicId,
         clinicName: login.clinicName,
         baseToken: login.baseToken,
+        paid: login.paid,
         doctors: [...login.doctors, doctor],
       ),
       pendingTarget: state.pendingTarget,
@@ -105,12 +106,13 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
     if (login == null || target == null) {
       throw StateError('No pending identity to unlock.');
     }
-    final session = await _repo.mintScope(
+    final session = (await _repo.mintScope(
       clinicId: login.clinicId,
       role: target.role,
       doctorId: target.doctorId,
       pin: pin,
-    );
+    ))
+        .withPaid(login.paid); // Section 9: tier known from login.
     state = state.copyWith(active: session);
     return session;
   }

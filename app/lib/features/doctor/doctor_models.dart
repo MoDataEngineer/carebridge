@@ -8,10 +8,19 @@ export '../patient/patient_models.dart' show VisitRecord, PrescriptionRecord;
 /// session. Drives the UI's AC-9 gate: only a doctor-scoped session may author a
 /// visit, so `canWrite` is false for a bare admin (the DB enforces this too).
 class DoctorScope {
-  const DoctorScope({required this.role, required this.clinicId, this.doctorId});
+  const DoctorScope({
+    required this.role,
+    required this.clinicId,
+    this.doctorId,
+    this.paid = false,
+  });
   final ActiveRole role;
   final String clinicId;
   final String? doctorId;
+
+  /// Section 9: paid-tier flag from the clinic row (server-derived at login).
+  /// UI-level gate only — the DB re-checks every paid server feature.
+  final bool paid;
 
   /// AC-9: writing clinical data requires a specific doctor identity.
   bool get canWrite => role == ActiveRole.doctor && doctorId != null;

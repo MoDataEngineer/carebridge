@@ -18,6 +18,7 @@ dependencies:
   supabase_flutter: ^2.5.6
   # Env flags (REQUIRE_ABHA etc.) loaded from .env — never commit the real file.
   flutter_dotenv: ^5.1.0
+  speech_to_text: ^7.4.0
 
 dev_dependencies:
   flutter_test:

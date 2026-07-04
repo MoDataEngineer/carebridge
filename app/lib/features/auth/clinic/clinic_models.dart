@@ -22,12 +22,16 @@ class ClinicLoginResult {
     required this.clinicName,
     required this.doctors,
     required this.baseToken,
+    this.paid = false,
   });
 
   final String clinicId;
   final String clinicName;
   final List<DoctorSummary> doctors;
   final String baseToken;
+
+  /// Section 9: clinic subscription tier at login (server-derived).
+  final bool paid;
 
   /// Section 2.2 / D1: exactly one doctor => solo practitioner. The picker is
   /// skipped and the session is scoped as that doctor (who is also admin).
@@ -51,6 +55,7 @@ class ScopedSession {
     required this.doctorId,
     required this.accessToken,
     required this.expiresIn,
+    this.paid = false,
   });
 
   final String clinicId;
@@ -58,4 +63,16 @@ class ScopedSession {
   final String? doctorId;
   final String accessToken;
   final int expiresIn;
+
+  /// Section 9 paid tier, carried from the login result.
+  final bool paid;
+
+  ScopedSession withPaid(bool value) => ScopedSession(
+        clinicId: clinicId,
+        role: role,
+        doctorId: doctorId,
+        accessToken: accessToken,
+        expiresIn: expiresIn,
+        paid: value,
+      );
 }
