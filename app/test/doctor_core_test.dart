@@ -65,6 +65,14 @@ class _FakeDoctorRepo implements DoctorRepository {
 
   @override
   Future<void> requestAccess(String patientId) async {}
+
+  // Audit fix M2: opening a patient record must be logged (Section 10).
+  final List<({String patientId, String what})> viewLogs = [];
+
+  @override
+  Future<void> logView(String patientId, String what) async {
+    viewLogs.add((patientId: patientId, what: what));
+  }
 }
 
 // Inert summary repo: the detail view's Summary tab (Phase 7) mounts on open,
@@ -126,6 +134,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Asha Rao'));
     await tester.pumpAndSettle();
+
+    // M2: opening the record wrote an access-log entry (Section 10).
+    expect(repo.viewLogs.single.patientId, 'p1');
 
     // The "Add visit" tab shows the AC-9 lock, not a writable form.
     await tester.tap(find.text('Add visit'));

@@ -40,6 +40,12 @@ abstract class DoctorRepository {
 
   /// Flow B: send an access request to a patient (creates a pending grant).
   Future<void> requestAccess(String patientId);
+
+  /// Section 10 auditability (audit fix M2): record that the current scoped
+  /// identity opened this patient's record. The DB derives doctor vs
+  /// clinic_admin from the verified claims; the patient sees it under
+  /// "Who viewed my records".
+  Future<void> logView(String patientId, String what);
 }
 
 class SupabaseDoctorRepository implements DoctorRepository {
@@ -142,6 +148,10 @@ class SupabaseDoctorRepository implements DoctorRepository {
   @override
   Future<void> requestAccess(String patientId) =>
       _client.rpc('carebridge_request_access', params: {'p_patient': patientId});
+
+  @override
+  Future<void> logView(String patientId, String what) => _client
+      .rpc('carebridge_log_view', params: {'p_patient': patientId, 'p_what': what});
 }
 
 final doctorRepositoryProvider = Provider<DoctorRepository>((ref) {

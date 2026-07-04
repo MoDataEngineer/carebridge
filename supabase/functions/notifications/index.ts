@@ -83,15 +83,18 @@ async function fcmAccessToken(sa: { client_email: string; private_key: string })
   return (await res.json()).access_token as string;
 }
 
+// Audit fix M1: push text carries NO PHI (no drug names, no test names) —
+// lock screens and FCM transport see only generic prompts. The specifics live
+// in the in-app feed, which is RLS-protected.
 const TITLES: Record<string, (p: Record<string, unknown>) => [string, string]> = {
   appointment_reminder: () => ["Appointment tomorrow",
     "You have an appointment scheduled tomorrow. Tap to view details."],
   follow_up: () => ["Follow-up due today",
     "Your doctor advised a follow-up visit for today."],
-  report_ready: (p) => ["Test report ready",
-    `Your ${p.test_name ?? "test"} report is available in the app.`],
+  report_ready: () => ["Test report ready",
+    "A test report is ready — open CareBridge to view it."],
   medication_reminder: (p) => ["Medication reminder",
-    `Time for your ${p.slot ?? ""} dose: ${(p.drugs as string[] | undefined)?.join(", ") ?? "medication"}.`],
+    `Time for your ${p.slot ?? ""} dose — open CareBridge for details.`],
 };
 
 Deno.serve(async (req) => {

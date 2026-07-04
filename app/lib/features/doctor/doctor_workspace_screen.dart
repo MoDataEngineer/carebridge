@@ -229,7 +229,16 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
                               ? p.phone
                               : '${p.phone} · ${p.abhaId}'),
                           trailing: const Icon(Icons.chevron_right),
-                          onTap: () => setState(() => _selected = p),
+                          onTap: () {
+                            setState(() => _selected = p);
+                            // Section 10 auditability (M2): opening a record is
+                            // logged for "Who viewed my records". Best-effort —
+                            // a log hiccup must not block care.
+                            ref
+                                .read(doctorRepositoryProvider)
+                                .logView(p.id, 'patient record opened')
+                                .catchError((_) {});
+                          },
                         );
                       },
                     );
