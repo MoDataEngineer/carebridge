@@ -217,15 +217,24 @@ class _OrderCard extends StatelessWidget {
   }
 }
 
-/// In-app report viewer: structured values as a small table; pdf/image as a
-/// file link. (Real signed-URL fetch from Supabase Storage is wired in a later
-/// pass — for now the stored file_url is shown.)
-class _ReportView extends StatelessWidget {
+/// In-app report viewer: structured values as a small table; pdf/image via a
+/// SHORT-LIVED SIGNED URL from the private 'reports' bucket (audit fix H3).
+/// Creating the signed URL passes the storage SELECT policies, so a viewer
+/// without an active grant path can never obtain a link.
+class _ReportView extends ConsumerStatefulWidget {
   const _ReportView({required this.report});
   final TestReportView report;
 
   @override
+  ConsumerState<_ReportView> createState() => _ReportViewState();
+}
+
+class _ReportViewState extends ConsumerState<_ReportView> {
+  Future<String>? _signed;
+
+  @override
   Widget build(BuildContext context) {
+    final report = widget.report;
     if (report.reportType == 'structured' && report.structuredValues != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,11 +254,60 @@ class _ReportView extends StatelessWidget {
         ],
       );
     }
-    return Row(
+    final path = report.fileUrl;
+    if (path == null) return const Text('(file missing)');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(report.reportType == 'image' ? Icons.image : Icons.picture_as_pdf),
-        const SizedBox(width: 8),
-        Expanded(child: Text(report.fileUrl ?? '(file)', overflow: TextOverflow.ellipsis)),
+        Row(
+          children: [
+            Icon(report.reportType == 'image' ? Icons.image : Icons.picture_as_pdf),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                report.reportType == 'image' ? 'Image report' : 'PDF report',
+              ),
+            ),
+            TextButton(
+              onPressed: () => setState(() {
+                _signed = ref.read(diagnosticsRepositoryProvider).signedUrl(path);
+              }),
+              child: const Text('View'),
+            ),
+          ],
+        ),
+        if (_signed != null)
+          FutureBuilder<String>(
+            future: _signed,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: LinearProgressIndicator(),
+                );
+              }
+              if (snap.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text('Could not open report: ${snap.error}'),
+                );
+              }
+              final url = snap.data!;
+              if (widget.report.reportType == 'image') {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Image.network(url,
+                      errorBuilder: (_, e, __) => Text('Could not load image: $e')),
+                );
+              }
+              // PDF: show the 1-hour link (in-app PDF renderer is a later pass).
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SelectableText('Open this link to view the PDF (valid 1 hour):\n$url',
+                    style: Theme.of(context).textTheme.bodySmall),
+              );
+            },
+          ),
       ],
     );
   }

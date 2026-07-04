@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:carebridge/core/theme/app_theme.dart';
 import 'package:carebridge/features/diagnostics/diagnostic_portal_screen.dart';
 import 'package:carebridge/features/diagnostics/diagnostics_models.dart';
@@ -85,6 +87,17 @@ class _FakeDiagnosticsRepo implements DiagnosticsRepository {
     // Simulate the grant closing: the order leaves the partner's actionable set.
     queue.removeWhere((q) => q.orderId == orderId);
   }
+
+  @override
+  Future<String> uploadReportFile({
+    required String orderId,
+    required String filename,
+    required Uint8List bytes,
+  }) async =>
+      '$orderId/$filename';
+
+  @override
+  Future<String> signedUrl(String path) async => 'https://signed.example/$path';
 }
 
 Widget _harness(_FakeDiagnosticsRepo repo, Widget child) => ProviderScope(

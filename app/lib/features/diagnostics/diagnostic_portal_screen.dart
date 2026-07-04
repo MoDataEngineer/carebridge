@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -133,7 +136,8 @@ class _DiagnosticPortalScreenState extends ConsumerState<DiagnosticPortalScreen>
 
   Future<void> _uploadDialog(PartnerQueueItem item) async {
     var reportType = 'structured';
-    final fileUrlCtrl = TextEditingController();
+    Uint8List? fileBytes;
+    String? fileName;
     final keyCtrl = TextEditingController();
     final valCtrl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -175,19 +179,35 @@ class _DiagnosticPortalScreenState extends ConsumerState<DiagnosticPortalScreen>
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
-                    'MVP: one structured value. Full panels + Storage file upload '
-                    'land in a later pass.',
+                    'MVP: one structured value. Full panels land in a later pass.',
                     style: TextStyle(fontSize: 12),
                   ),
                 ),
-              ] else
-                TextField(
-                  controller: fileUrlCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'File URL',
-                    hintText: 'Storage path / URL of the uploaded file',
-                  ),
+              ] else ...[
+                // Audit fix H3: real file into the PRIVATE 'reports' bucket —
+                // the storage policies allow it only under this order's path
+                // while the order-scoped grant is active.
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.attach_file),
+                  label: Text(fileName ?? 'Choose ${reportType == 'pdf' ? 'PDF' : 'image'} file'),
+                  onPressed: () async {
+                    final picked = await FilePicker.pickFiles(
+                      withData: true,
+                      type: FileType.custom,
+                      allowedExtensions: reportType == 'pdf'
+                          ? ['pdf']
+                          : ['png', 'jpg', 'jpeg', 'webp'],
+                    );
+                    final f = picked?.files.firstOrNull;
+                    if (f?.bytes != null) {
+                      setLocal(() {
+                        fileBytes = f!.bytes;
+                        fileName = f.name;
+                      });
+                    }
+                  },
                 ),
+              ],
             ],
           ),
           actions: [
@@ -197,12 +217,28 @@ class _DiagnosticPortalScreenState extends ConsumerState<DiagnosticPortalScreen>
         ),
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
+    if (reportType != 'structured' && fileBytes == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Choose a file first')));
+      return;
+    }
     try {
-      await ref.read(diagnosticsRepositoryProvider).uploadReport(
+      final repo = ref.read(diagnosticsRepositoryProvider);
+      String? path;
+      if (reportType != 'structured') {
+        // Upload the file FIRST (needs the still-open grant), then record the
+        // report row — which closes the grant.
+        path = await repo.uploadReportFile(
+          orderId: item.orderId,
+          filename: fileName!,
+          bytes: fileBytes!,
+        );
+      }
+      await repo.uploadReport(
             orderId: item.orderId,
             reportType: reportType,
-            fileUrl: reportType == 'structured' ? null : fileUrlCtrl.text.trim(),
+            fileUrl: path,
             structuredValues: reportType == 'structured' && keyCtrl.text.trim().isNotEmpty
                 ? {keyCtrl.text.trim(): valCtrl.text.trim()}
                 : null,

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -46,6 +48,21 @@ abstract class DiagnosticsRepository {
     String? fileUrl,
     Map<String, dynamic>? structuredValues,
   });
+
+  /// Upload the report FILE into the private 'reports' bucket (audit fix H3).
+  /// Path is '<orderId>/<filename>' — the storage RLS policies (0016) resolve
+  /// the order from the path and allow the write only while the partner's
+  /// order-scoped grant is active. Returns the stored object path.
+  Future<String> uploadReportFile({
+    required String orderId,
+    required String filename,
+    required Uint8List bytes,
+  });
+
+  /// Short-lived signed URL for a stored report file. Creating it requires
+  /// passing the storage SELECT policies, so an unauthorized viewer cannot
+  /// obtain a link at all.
+  Future<String> signedUrl(String path);
 }
 
 class SupabaseDiagnosticsRepository implements DiagnosticsRepository {
@@ -120,6 +137,23 @@ class SupabaseDiagnosticsRepository implements DiagnosticsRepository {
         'p_file_url': fileUrl,
         'p_structured_values': structuredValues,
       });
+
+  @override
+  Future<String> uploadReportFile({
+    required String orderId,
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    // Sanitize the filename; keep the '<order>/<file>' path the policies parse.
+    final safe = filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final path = '$orderId/${DateTime.now().millisecondsSinceEpoch}_$safe';
+    await _client.storage.from('reports').uploadBinary(path, bytes);
+    return path;
+  }
+
+  @override
+  Future<String> signedUrl(String path) =>
+      _client.storage.from('reports').createSignedUrl(path, 3600);
 }
 
 final diagnosticsRepositoryProvider = Provider<DiagnosticsRepository>((ref) {
