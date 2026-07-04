@@ -15,6 +15,18 @@ abstract class ClinicAuthRepository {
     required String phone,
   });
 
+  /// Register a NEW hospital (founder decision 2026-07-04): hospital name +
+  /// registration/license number + mobile + admin PIN. Returns a logged-in
+  /// result with an empty roster; doctors are added under it afterwards.
+  /// Same path for solo doctors.
+  Future<ClinicLoginResult> register({
+    required String name,
+    required String registrationNumber,
+    required String phone,
+    required String adminPin,
+    String? address,
+  });
+
   /// Verify the identity's PIN (D1) and mint the short-lived scoped token (D2).
   /// Throws [PinRejected] if the PIN is wrong or the identity is locked out.
   Future<ScopedSession> mintScope({
@@ -55,6 +67,34 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
     final data = res.data as Map<String, dynamic>;
     // Adopt the clinic's GoTrue session client-side. From here on, PostgREST
     // and function calls carry this (still unscoped) token automatically.
+    await _client.auth.setSession(data['refresh_token'] as String);
+    return ClinicLoginResult(
+      clinicId: data['clinic_id'] as String,
+      clinicName: (data['clinic_name'] ?? '') as String,
+      baseToken: (data['access_token'] ?? '') as String,
+      doctors: ((data['doctors'] ?? []) as List)
+          .map((e) => DoctorSummary.fromMap(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  @override
+  Future<ClinicLoginResult> register({
+    required String name,
+    required String registrationNumber,
+    required String phone,
+    required String adminPin,
+    String? address,
+  }) async {
+    final res = await _client.functions.invoke('mint-scope-token', body: {
+      'action': 'register',
+      'name': name,
+      'registration_number': registrationNumber,
+      'phone': phone,
+      'admin_pin': adminPin,
+      'address': address,
+    });
+    final data = res.data as Map<String, dynamic>;
     await _client.auth.setSession(data['refresh_token'] as String);
     return ClinicLoginResult(
       clinicId: data['clinic_id'] as String,

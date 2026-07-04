@@ -1,4 +1,4 @@
-import 'package:carebridge/core/routing/app_router.dart';
+﻿import 'package:carebridge/core/routing/app_router.dart';
 import 'package:carebridge/core/theme/app_theme.dart';
 import 'package:carebridge/features/auth/clinic/clinic_auth_repository.dart';
 import 'package:carebridge/features/auth/clinic/clinic_models.dart';
@@ -32,6 +32,21 @@ class _FakeRepo implements ClinicAuthRepository {
   }
 
   @override
+  Future<ClinicLoginResult> register({
+    required String name,
+    required String registrationNumber,
+    required String phone,
+    required String adminPin,
+    String? address,
+  }) async =>
+      ClinicLoginResult(
+        clinicId: 'clinic-new',
+        clinicName: name,
+        baseToken: 'base',
+        doctors: const [],
+      );
+
+  @override
   Future<ScopedSession> mintScope({
     required String clinicId,
     required ActiveRole role,
@@ -58,9 +73,9 @@ Widget _harness(int doctorCount) => ProviderScope(
     );
 
 Future<void> _loginAsClinic(WidgetTester tester) async {
-  await tester.tap(find.text('Doctor'));
+  await tester.tap(find.text('Hospital'));
   await tester.pumpAndSettle();
-  expect(find.text('Clinic sign in'), findsOneWidget);
+  expect(find.text('Hospital sign in'), findsOneWidget);
   await tester.enterText(
       find.widgetWithText(TextField, 'Clinic registration / license number'), 'REG-1');
   await tester.tap(find.text('Continue'));

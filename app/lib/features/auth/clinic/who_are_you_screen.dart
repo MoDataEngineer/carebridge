@@ -35,6 +35,18 @@ class WhoAreYouScreen extends ConsumerWidget {
           Text('Select your identity to continue.',
               style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 16),
+          if (doctors.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  'No doctors yet. Unlock as Clinic Admin below, then use '
+                  '"Manage doctors" to add your first doctor — for a solo '
+                  'practice, add yourself.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
           for (final d in doctors)
             Card(
               child: ListTile(

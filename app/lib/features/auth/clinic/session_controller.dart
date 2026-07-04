@@ -52,6 +52,44 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
     return result;
   }
 
+  /// Register a NEW hospital, land logged in with an empty roster. The caller
+  /// routes to "Who are you?" where only the Admin tile shows; unlocking as
+  /// admin lets them add doctor profiles (roster management is admin-scoped).
+  Future<ClinicLoginResult> register({
+    required String name,
+    required String registrationNumber,
+    required String phone,
+    required String adminPin,
+    String? address,
+  }) async {
+    final result = await _repo.register(
+      name: name,
+      registrationNumber: registrationNumber,
+      phone: phone,
+      adminPin: adminPin,
+      address: address,
+    );
+    state = ClinicSessionState(login: result);
+    return result;
+  }
+
+  /// Add a freshly-created doctor to the in-memory roster so the picker and
+  /// manage-doctors screens reflect it without a re-login.
+  void doctorAdded(DoctorSummary doctor) {
+    final login = state.login;
+    if (login == null) return;
+    state = ClinicSessionState(
+      login: ClinicLoginResult(
+        clinicId: login.clinicId,
+        clinicName: login.clinicName,
+        baseToken: login.baseToken,
+        doctors: [...login.doctors, doctor],
+      ),
+      pendingTarget: state.pendingTarget,
+      active: state.active,
+    );
+  }
+
   /// True only when an identity choice is required — i.e. a multi-doctor clinic.
   bool get needsPicker => (state.login?.doctors.length ?? 0) > 1;
 

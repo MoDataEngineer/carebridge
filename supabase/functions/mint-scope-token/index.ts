@@ -66,9 +66,45 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // ---------------- action: login ----------------
-  if (payload.action === "login") {
-    const reg = String(payload.registration_number ?? "");
+  // ---------------- action: register ----------------
+  // Founder decision (2026-07-04): hospitals self-register — hospital name +
+  // registration/license number + mobile + an ADMIN PIN — then add doctor
+  // profiles under themselves. Same path for solo doctors. Falls through to
+  // the login provisioning below on success.
+  let registeredReg: string | null = null;
+  if (payload.action === "register") {
+    const name = String(payload.name ?? "").trim();
+    const reg = String(payload.registration_number ?? "").trim();
+    const adminPin = String(payload.admin_pin ?? "");
+    const address = String(payload.address ?? "").trim() || null;
+    // PLACEHOLDER: phone/OTP verification lands in Phase 11.
+    if (!name || !reg) return json({ error: "name_and_registration_required" }, 400);
+    if (!/^[0-9]{4,6}$/.test(adminPin)) return json({ error: "admin_pin_must_be_4_to_6_digits" }, 400);
+
+    const { data: existing, error: exErr } = await admin
+      .from("clinics").select("id").eq("registration_number", reg).maybeSingle();
+    if (exErr) return json({ error: "lookup_failed" }, 500);
+    if (existing) return json({ error: "registration_number_already_exists" }, 409);
+
+    const { data: created, error: insErr } = await admin
+      .from("clinics")
+      .insert({ name, registration_number: reg, address })
+      .select("id")
+      .single();
+    if (insErr) return json({ error: "register_failed" }, 500);
+
+    // Hash + store the admin PIN server-side (bcrypt, migration 0004).
+    const { error: pinErr } = await admin.rpc("carebridge_set_pin", {
+      p_type: "admin", p_id: created.id, p_pin: adminPin,
+    });
+    if (pinErr) return json({ error: "pin_store_failed" }, 500);
+
+    registeredReg = reg; // fall through to login provisioning
+  }
+
+  // ---------------- action: login (also completes register) ----------------
+  if (payload.action === "login" || registeredReg !== null) {
+    const reg = registeredReg ?? String(payload.registration_number ?? "");
     // PLACEHOLDER: real phone/OTP verification lands in Phase 11.
     const { data: clinic, error: cErr } = await admin
       .from("clinics")

@@ -22,20 +22,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Patient'), findsOneWidget);
-    expect(find.text('Doctor'), findsOneWidget);
+    // Founder decision 2026-07-04: clinic entry is labelled "Hospital".
+    expect(find.text('Hospital'), findsOneWidget);
     expect(find.text('Diagnostic Partner'), findsOneWidget);
     // There is no literal "Clinic" button (Section 2).
     expect(find.text('Clinic'), findsNothing);
   });
 
-  testWidgets('Doctor button routes to clinic login (not a doctor login)', (tester) async {
+  testWidgets('Hospital button routes to clinic login (not a doctor login)', (tester) async {
     await tester.pumpWidget(harness());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Doctor'));
+    await tester.tap(find.text('Hospital'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Clinic sign in'), findsOneWidget);
+    expect(find.text('Hospital sign in'), findsOneWidget);
   });
 
   testWidgets('Patient and Diagnostic buttons route to their auth screens', (tester) async {

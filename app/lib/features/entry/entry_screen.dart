@@ -6,8 +6,10 @@ import '../../core/theme/breakpoints.dart';
 import '../../shared/widgets/role_button.dart';
 
 /// THE entry screen (Section 2): three buttons, nothing else.
-/// There is no literal "Clinic" button — "Doctor" is the entry into the
-/// clinic/doctor structure. Diagnostic Partner stays flat.
+/// Founder decision 2026-07-04: the clinic entry is labelled "Hospital"
+/// (was "Doctor" in the original spec). Hospitals self-register and add
+/// doctor profiles under themselves — solo doctors included.
+/// Diagnostic Partner stays flat.
 class EntryScreen extends StatelessWidget {
   const EntryScreen({super.key});
 
@@ -43,8 +45,8 @@ class EntryScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 RoleButton(
-                  label: 'Doctor',
-                  icon: Icons.medical_services,
+                  label: 'Hospital',
+                  icon: Icons.local_hospital,
                   onTap: () => context.push(Routes.clinicLogin),
                 ),
                 const SizedBox(height: 16),

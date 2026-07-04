@@ -60,7 +60,7 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return ResponsiveScaffold(
-      title: 'Clinic sign in',
+      title: 'Hospital sign in',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -94,9 +94,16 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
             const SizedBox(height: 12),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => context.push(Routes.hospitalRegister),
+            icon: const Icon(Icons.add_business),
+            label: const Text('New hospital? Register here'),
+          ),
+          const SizedBox(height: 16),
           Text(
-            'One login per clinic; doctors are added under it (Section 2.2). '
+            'One login per hospital; doctors are added under it (Section 2.2) — '
+            'solo doctors register their practice the same way. '
             'OTP is placeholder until Phase 11.',
             style: Theme.of(context).textTheme.bodySmall,
           ),

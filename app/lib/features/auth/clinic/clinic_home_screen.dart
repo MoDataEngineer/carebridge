@@ -7,6 +7,7 @@ import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 import '../../doctor/doctor_models.dart';
 import '../../doctor/doctor_workspace_screen.dart';
+import 'manage_doctors_screen.dart';
 import 'session_controller.dart';
 
 /// Placeholder landing after a session is scoped. Confirms the active scope
@@ -56,6 +57,17 @@ class ClinicHomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.people),
               label: const Text('Open patients'),
             ),
+          // Roster management is admin-scoped (Section 5.2).
+          if (s != null && s.role == ActiveRole.admin) ...[
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ManageDoctorsScreen(),
+              )),
+              icon: const Icon(Icons.badge),
+              label: const Text('Manage doctors'),
+            ),
+          ],
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () {
