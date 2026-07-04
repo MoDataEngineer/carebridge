@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/routing/app_router.dart';
 import '../consent/privacy_tab.dart';
 import '../diagnostics/test_orders_view.dart';
+import '../notifications/notifications_screen.dart';
 import 'book_appointment_tab.dart';
 import 'history_tab.dart';
 import 'profile_tab.dart';
@@ -22,6 +23,13 @@ class PatientHomeScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('My health record'),
           actions: [
+            IconButton(
+              tooltip: 'Notifications',
+              icon: const Icon(Icons.notifications),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              )),
+            ),
             IconButton(
               tooltip: 'Sign out',
               icon: const Icon(Icons.logout),
