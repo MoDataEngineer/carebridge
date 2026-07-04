@@ -20,7 +20,16 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const FCM_SA_JSON = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
+// Preferred: base64-encoded service-account JSON (escape-proof for the \n
+// sequences in private_key). Raw-JSON var kept as fallback.
+const FCM_SA_JSON = (() => {
+  const b64 = Deno.env.get("FCM_SERVICE_ACCOUNT_B64");
+  if (b64) {
+    try { return new TextDecoder().decode(Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0))); }
+    catch (e) { console.error("FCM_SERVICE_ACCOUNT_B64 decode failed:", e); }
+  }
+  return Deno.env.get("FCM_SERVICE_ACCOUNT_JSON");
+})();
 // Shared secret for the scheduler (set via supabase secrets). Key formats vary
 // (legacy JWT vs sb_secret_), so a dedicated header beats comparing keys.
 const CRON_SECRET = Deno.env.get("CRON_SECRET");
