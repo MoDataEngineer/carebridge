@@ -2,6 +2,8 @@ import 'package:carebridge/core/theme/app_theme.dart';
 import 'package:carebridge/features/doctor/doctor_models.dart';
 import 'package:carebridge/features/doctor/doctor_repository.dart';
 import 'package:carebridge/features/doctor/doctor_workspace_screen.dart';
+import 'package:carebridge/features/summary/summary_models.dart';
+import 'package:carebridge/features/summary/summary_repository.dart';
 import 'package:carebridge/shared/models/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,10 +67,23 @@ class _FakeDoctorRepo implements DoctorRepository {
   Future<void> requestAccess(String patientId) async {}
 }
 
+// Inert summary repo: the detail view's Summary tab (Phase 7) mounts on open,
+// so it needs an override; these tests don't exercise it.
+class _StubSummaryRepo implements SummaryRepository {
+  @override
+  Future<SafetyBanner> banner(String patientId) async => const SafetyBanner();
+  @override
+  Future<AiSummaryResult> generate(String patientId) async =>
+      const AiSummaryResult(banner: SafetyBanner());
+}
+
 Widget _harness(_FakeDoctorRepo repo, DoctorScope scope) {
   repo.scope = scope;
   return ProviderScope(
-    overrides: [doctorRepositoryProvider.overrideWithValue(repo)],
+    overrides: [
+      doctorRepositoryProvider.overrideWithValue(repo),
+      summaryRepositoryProvider.overrideWithValue(_StubSummaryRepo()),
+    ],
     child: MaterialApp(
       theme: AppTheme.light,
       home: DoctorWorkspaceScreen(scope: scope),

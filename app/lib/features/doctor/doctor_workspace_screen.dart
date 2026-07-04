@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/enums.dart';
 import '../diagnostics/test_orders_view.dart';
+import '../summary/summary_tab.dart';
 import 'add_visit_form.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
@@ -229,7 +230,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
   Widget _detailView(DoctorScope scope) {
     final p = _selected!;
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -245,6 +246,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
             ],
           ),
           const TabBar(tabs: [
+            Tab(text: 'Summary'),
             Tab(text: 'History'),
             Tab(text: 'Tests'),
             Tab(text: 'Add visit'),
@@ -253,6 +255,9 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
           Expanded(
             child: TabBarView(
               children: [
+                // One-touch AI summary (Section 8) — doctor AND admin scopes,
+                // subject to the same grant check (enforced server-side).
+                PatientSummaryTab(patientId: p.id),
                 _historyTab(p),
                 // Tests tab: view orders + (doctor-scoped) order a new test.
                 TestOrdersView(patientId: p.id, canOrder: scope.canWrite),
@@ -266,7 +271,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
                                 const SnackBar(content: Text('Visit saved')));
                             // Bounce back to History so the new visit shows.
                             setState(() {});
-                            DefaultTabController.of(context).animateTo(0);
+                            DefaultTabController.of(context).animateTo(1);
                           },
                         ),
                       )
