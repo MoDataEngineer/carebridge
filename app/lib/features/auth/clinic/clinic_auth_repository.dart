@@ -31,9 +31,13 @@ class PinRejected implements Exception {
   final DateTime? lockedUntil;
 }
 
-/// Real implementation backed by the `mint-scope-token` Edge Function (D2).
-/// NOTE: requires the function to be deployed and its secrets set
-/// (SUPABASE_JWT_SECRET etc.) — see supabase/functions/mint-scope-token.
+/// Real implementation backed by the `mint-scope-token` Edge Function
+/// (Phase 4.5 Option A contract — no self-minted JWTs):
+///   login -> function returns a REAL GoTrue session; we adopt it via
+///            setSession(refresh_token), so every later call rides it.
+///   scope -> function verifies the PIN and writes scope_sessions; we then
+///            refreshSession() so the NEW token carries the hook-injected
+///            clinic_id / active_role / active_doctor_id claims RLS reads.
 class SupabaseClinicAuthRepository implements ClinicAuthRepository {
   SupabaseClinicAuthRepository(this._client);
   final SupabaseClient _client;
@@ -49,10 +53,13 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
       'phone': phone,
     });
     final data = res.data as Map<String, dynamic>;
+    // Adopt the clinic's GoTrue session client-side. From here on, PostgREST
+    // and function calls carry this (still unscoped) token automatically.
+    await _client.auth.setSession(data['refresh_token'] as String);
     return ClinicLoginResult(
       clinicId: data['clinic_id'] as String,
       clinicName: (data['clinic_name'] ?? '') as String,
-      baseToken: (data['base_token'] ?? '') as String,
+      baseToken: (data['access_token'] ?? '') as String,
       doctors: ((data['doctors'] ?? []) as List)
           .map((e) => DoctorSummary.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -66,14 +73,25 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
     String? doctorId,
     required String pin,
   }) async {
-    final res = await _client.functions.invoke('mint-scope-token', body: {
-      'action': 'scope',
-      'clinic_id': clinicId,
-      'target_role': role == ActiveRole.admin ? 'admin' : 'doctor',
-      'target_doctor_id': doctorId,
-      'pin': pin,
-    });
-    final data = res.data as Map<String, dynamic>;
+    final current = _client.auth.currentSession;
+    if (current == null) {
+      throw StateError('No clinic session — log in first.');
+    }
+    Map<String, dynamic> data;
+    try {
+      final res = await _client.functions.invoke('mint-scope-token', body: {
+        'action': 'scope',
+        'target_role': role == ActiveRole.admin ? 'admin' : 'doctor',
+        'target_doctor_id': doctorId,
+        'pin': pin,
+        'access_token': current.accessToken,
+      });
+      data = res.data as Map<String, dynamic>;
+    } on FunctionException catch (e) {
+      // Non-2xx (e.g. 401 pin_rejected) surfaces as an exception; unwrap it.
+      final details = e.details;
+      data = details is Map<String, dynamic> ? details : {'error': 'scope_failed'};
+    }
     if (data['error'] != null) {
       throw PinRejected(
         (data['reason'] ?? data['error']) as String,
@@ -82,12 +100,19 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
             : null,
       );
     }
+    // Scope row written server-side; refresh so the new access token carries
+    // the claims (custom_access_token_hook injects them on issue).
+    final refreshed = await _client.auth.refreshSession();
+    final session = refreshed.session;
+    if (session == null) {
+      throw StateError('Session refresh failed after scoping.');
+    }
     return ScopedSession(
       clinicId: clinicId,
       role: role,
       doctorId: role == ActiveRole.doctor ? doctorId : null,
-      accessToken: data['access_token'] as String,
-      expiresIn: (data['expires_in'] ?? 0) as int,
+      accessToken: session.accessToken,
+      expiresIn: session.expiresIn ?? 0,
     );
   }
 }
