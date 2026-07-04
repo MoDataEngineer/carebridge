@@ -54,7 +54,9 @@ class SupabaseDoctorRepository implements DoctorRepository {
 
   @override
   Future<List<PatientSearchResult>> searchPatients(String query) async {
-    final q = query.trim();
+    // Audit L1: strip PostgREST filter metacharacters so crafted input cannot
+    // reshape the .or() expression (RLS bounds the rows regardless).
+    final q = query.trim().replaceAll(RegExp(r'[,()."\\]'), ' ').trim();
     var builder = _client.from('patients').select('id, name, phone, abha_id');
     if (q.isNotEmpty) {
       // ilike across the three lookup keys; RLS still scopes the visible set.

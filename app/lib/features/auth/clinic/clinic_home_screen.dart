@@ -19,6 +19,7 @@ class ClinicHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(clinicSessionControllerProvider);
     final s = state.active;
+    final unverified = state.login?.verified == false;
     final roleLabel = s == null
         ? 'no active scope'
         : (s.role == ActiveRole.admin ? 'Admin-scoped (View All)' : 'Doctor-scoped');
@@ -32,6 +33,21 @@ class ClinicHomeScreen extends ConsumerWidget {
         children: [
           const Icon(Icons.verified_user, size: 48),
           const SizedBox(height: 12),
+          // Audit H2: self-registered hospitals show as unverified until the
+          // founder confirms the registration number.
+          if (unverified)
+            Card(
+              color: Theme.of(context).colorScheme.tertiaryContainer,
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Text(
+                  'Registration pending verification — CareBridge will confirm '
+                  'your hospital registration number shortly.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
           Text('Session scope: $roleLabel',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium),

@@ -84,6 +84,7 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
         clinicName: login.clinicName,
         baseToken: login.baseToken,
         paid: login.paid,
+        verified: login.verified,
         doctors: [...login.doctors, doctor],
       ),
       pendingTarget: state.pendingTarget,

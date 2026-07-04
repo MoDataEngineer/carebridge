@@ -51,6 +51,10 @@ const randomSecret = () =>
     .replace(/[^a-zA-Z0-9]/g, "")
     .slice(0, 40) + "Aa1!";
 
+// Normalize a phone for comparison: digits only, last 10 (Indian mobiles).
+const normPhone = (p: unknown) =>
+  String(p ?? "").replace(/\D/g, "").slice(-10);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -65,6 +69,18 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // Audit M3: per-IP rolling-window rate limit on login/register (the
+  // unauthenticated actions). 20 attempts / 10 minutes per IP per action.
+  if (payload.action === "login" || payload.action === "register") {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const { data: allowed, error: rateErr } = await admin.rpc("carebridge_rate_ok", {
+      p_key: `${payload.action}:${ip}`,
+      p_max: 20,
+    });
+    if (rateErr) return json({ error: "rate_check_failed" }, 500);
+    if (!allowed) return json({ error: "too_many_attempts" }, 429);
+  }
 
   // ---------------- action: register ----------------
   // Founder decision (2026-07-04): hospitals self-register — hospital name +
@@ -86,9 +102,15 @@ Deno.serve(async (req) => {
     if (exErr) return json({ error: "lookup_failed" }, 500);
     if (existing) return json({ error: "registration_number_already_exists" }, 409);
 
+    // H1 interim: the registration phone becomes the login second factor.
+    // H2: self-registered hospitals start UNVERIFIED (founder flips the flag).
+    if (normPhone(payload.phone).length < 10) {
+      return json({ error: "valid_phone_required" }, 400);
+    }
     const { data: created, error: insErr } = await admin
       .from("clinics")
-      .insert({ name, registration_number: reg, address })
+      .insert({ name, registration_number: reg, address,
+                phone: String(payload.phone), verified: false })
       .select("id")
       .single();
     if (insErr) return json({ error: "register_failed" }, 500);
@@ -108,11 +130,20 @@ Deno.serve(async (req) => {
     // PLACEHOLDER: real phone/OTP verification lands in Phase 11.
     const { data: clinic, error: cErr } = await admin
       .from("clinics")
-      .select("id, name, auth_user_id, subscription_status")
+      .select("id, name, auth_user_id, subscription_status, phone, verified")
       .eq("registration_number", reg)
       .maybeSingle();
     if (cErr) return json({ error: "lookup_failed" }, 500);
     if (!clinic) return json({ error: "clinic_not_found" }, 404);
+
+    // H1 interim second factor (real OTP lands in Phase 11): the caller must
+    // present the clinic's REGISTERED phone, not just the public reg number.
+    // Skipped only when registration just happened in this same request.
+    if (registeredReg === null && clinic.phone &&
+        normPhone(payload.phone) !== normPhone(clinic.phone)) {
+      return json({ error: "phone_mismatch",
+        detail: "use the mobile number this hospital registered with" }, 401);
+    }
 
     const email = clinicEmail(reg);
     let authUserId = clinic.auth_user_id as string | null;
@@ -179,6 +210,7 @@ Deno.serve(async (req) => {
       clinic_id: clinic.id,
       clinic_name: clinic.name,
       subscription_status: clinic.subscription_status ?? "free",
+      verified: clinic.verified === true, // H2: badge in the app
       doctors: doctors ?? [],
       is_solo: (doctors ?? []).length === 1,
       access_token: session.session.access_token,

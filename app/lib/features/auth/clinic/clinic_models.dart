@@ -23,6 +23,7 @@ class ClinicLoginResult {
     required this.doctors,
     required this.baseToken,
     this.paid = false,
+    this.verified = true,
   });
 
   final String clinicId;
@@ -32,6 +33,10 @@ class ClinicLoginResult {
 
   /// Section 9: clinic subscription tier at login (server-derived).
   final bool paid;
+
+  /// Audit H2: self-registered hospitals start unverified; the founder flips
+  /// the flag after checking the registration number. Badge-only in the UI.
+  final bool verified;
 
   /// Section 2.2 / D1: exactly one doctor => solo practitioner. The picker is
   /// skipped and the session is scoped as that doctor (who is also admin).

@@ -101,6 +101,26 @@ Deno.serve(async (req) => {
   if (inputErr) return json({ error: "access_denied", detail: inputErr.message }, 403);
 
   const banner = input.banner; // Layer 1 — deterministic, passed through as-is.
+
+  // Audit M5: doctor-entered strings (diagnosis, drug names) flow into the
+  // prompt. Cap length and strip control characters so a crafted value cannot
+  // smuggle multi-line instructions; the strict system prompt does the rest.
+  const clip = (v: unknown, n = 300) =>
+    typeof v === "string"
+      ? v.replace(/[\u0000-\u001F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, n)
+      : v;
+  for (const v of input.visits ?? []) {
+    v.diagnosis = clip(v.diagnosis);
+    for (const rx of v.prescriptions ?? []) {
+      rx.drug = clip(rx.drug, 120);
+      rx.dosage = clip(rx.dosage, 60);
+    }
+  }
+  for (const t of input.tests ?? []) {
+    t.test_name = clip(t.test_name, 120);
+    t.test_type = clip(t.test_type, 60);
+  }
+
   const fingerprint = await sha256(JSON.stringify(input));
 
   // 2. Cache check (service role; table is server-write-only).
