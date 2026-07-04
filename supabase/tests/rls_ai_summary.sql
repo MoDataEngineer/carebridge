@@ -29,8 +29,10 @@ declare
 begin
   -- ---- seed (owner; RLS bypassed) ----
   insert into auth.users (id) values (uidp);
-  insert into clinics (id, name, registration_number) values
-    (ca,'Clinic S','REG-D7-A'), (cb,'Clinic T','REG-D7-B');
+  -- Phase 9: AI summary is paid-gated; this harness tests the GRANT model, so
+  -- seed both clinics as paid (the tier gate has its own tests in rls_phase9).
+  insert into clinics (id, name, registration_number, subscription_status) values
+    (ca,'Clinic S','REG-D7-A','paid'), (cb,'Clinic T','REG-D7-B','paid');
   insert into doctors (id, clinic_id, name, council_reg_number, council_name, specialty) values
     (d1, ca,'Dr One','MC-D7-1','NMC','GP'),
     (d2, cb,'Dr Two','MC-D7-2','NMC','GP');
