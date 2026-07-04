@@ -23,8 +23,13 @@
 // treatment suggestions, and every sentence_sources id the model returns is
 // validated against the real input set — hallucinated references are DROPPED.
 //
-// REQUIRED SECRETS (supabase secrets set …): ANTHROPIC_API_KEY.
-// Optional: ANTHROPIC_MODEL (default claude-sonnet-4-6).
+// PROVIDER SECRETS (supabase secrets set …) — set exactly one:
+//   ANTHROPIC_API_KEY  -> Claude API (the Section 3 target; paid).
+//   GROQ_API_KEY       -> Groq free tier (MVP stand-in; Groq does not train on
+//                         API data, unlike Gemini's free tier — chosen for
+//                         DPDP-safety with patient data). Founder-approved
+//                         deviation from Section 3 until a paid key exists.
+// If both are set, Anthropic wins. Optional: ANTHROPIC_MODEL / GROQ_MODEL.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -32,7 +37,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-const MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-6";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-6";
+const GROQ_MODEL = Deno.env.get("GROQ_MODEL") ?? "llama-3.3-70b-versatile";
+const MODEL = ANTHROPIC_API_KEY ? ANTHROPIC_MODEL : `groq/${GROQ_MODEL}`;
 
 // Exact system prompt from CLAUDE.md Section 8 — do not reword.
 const SYSTEM_PROMPT =
@@ -112,12 +120,13 @@ Deno.serve(async (req) => {
       detail: "no structured visits or test results yet", cached: false });
   }
 
-  if (!ANTHROPIC_API_KEY) {
+  if (!ANTHROPIC_API_KEY && !GROQ_API_KEY) {
     return json({ error: "not_configured",
-      detail: "ANTHROPIC_API_KEY secret is not set on this project" }, 503);
+      detail: "no AI provider secret set (ANTHROPIC_API_KEY or GROQ_API_KEY)" }, 503);
   }
 
-  // 3. Layer 2 — Claude API, structured input only.
+  // 3. Layer 2 — model call, structured input only. Same system prompt and
+  //    output contract regardless of provider.
   const userContent =
     "Structured visit and test-result data (JSON):\n" +
     JSON.stringify({ visits: input.visits, tests: input.tests }) +
@@ -127,25 +136,45 @@ Deno.serve(async (req) => {
     "where each sentence_sources entry maps one sentence of the summary to the " +
     "visit_id or test_order_id it came from. Use only ids present in the data.";
 
-  const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userContent }],
-    }),
-  });
-  if (!anthropicRes.ok) {
-    return json({ error: "model_error", detail: await anthropicRes.text() }, 502);
+  let rawText: string;
+  if (ANTHROPIC_API_KEY) {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userContent }],
+      }),
+    });
+    if (!res.ok) return json({ error: "model_error", detail: await res.text() }, 502);
+    rawText = (await res.json()).content?.[0]?.text ?? "";
+  } else {
+    // Groq: OpenAI-compatible chat completions; force a JSON object reply.
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        max_tokens: 1024,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+      }),
+    });
+    if (!res.ok) return json({ error: "model_error", detail: await res.text() }, 502);
+    rawText = (await res.json()).choices?.[0]?.message?.content ?? "";
   }
-  const modelReply = await anthropicRes.json();
-  const rawText: string = modelReply.content?.[0]?.text ?? "";
 
   let parsed: { summary?: string; sentence_sources?: SentenceSource[] };
   try {
