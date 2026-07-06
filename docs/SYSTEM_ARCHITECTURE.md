@@ -100,6 +100,15 @@ partner updates progress (sample_collected/in_progress only) → uploads file
 to Storage (grant-gated path) then records the report → order flips
 report_ready, grant closes, patient notification enqueued.
 
+**Live queue (Phase 10, paid).** `appointments` is in the Realtime
+publication; RLS decides which change events a session receives (doctor =
+own rows, admin = clinic-wide, patient = self). Events are SIGNALS — the UI
+refetches `carebridge_live_queue()` (narrow columns: patient name + token
+only). Check-in (`carebridge_checkin_appointment`, per-doctor-per-day
+sequential tokens, doctor or front-desk admin) and `carebridge_call_next`
+(doctor-only) are PAID-gated in the DB; viewing booked appointments stays
+free-tier.
+
 ## 5. State management & test seams
 
 Every feature follows the same pattern: abstract repository + Supabase
@@ -123,7 +132,7 @@ success-marker RAISE — exit code 1 with `*_OK` is a PASS).
 
 ## 7. Known-pending (not defects)
 
-Phase 10 live queue (Realtime), Phase 11 real auth (ABDM patient OTP, clinic
+Phase 11 real auth (ABDM patient OTP, clinic
 SMS OTP, partner lab-registry, HPR verification badges), payment gateway
 (Section 9 stub), in-app PDF renderer (signed-URL link today), Android
 emulator / iOS TestFlight builds. Risk-register items H1/H2 carry interim

@@ -8,6 +8,7 @@ import 'add_visit_form.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
 import 'follow_ups_screen.dart';
+import 'live_queue_screen.dart';
 import 'upgrade_screen.dart';
 
 /// Doctor-core workspace (Section 5.2): scoped patient search, a tabbed patient
@@ -53,6 +54,17 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
       appBar: AppBar(
         title: const Text('Patients'),
         actions: [
+          // Live appointment/token tracker (Phase 10, paid — Section 9).
+          // Doctor scope: own queue; admin scope: clinic-wide (Section 5.2).
+          IconButton(
+            tooltip: 'Live queue',
+            icon: const Icon(Icons.confirmation_number_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => scope.paid
+                  ? LiveQueueScreen(scope: scope)
+                  : const UpgradeScreen(),
+            )),
+          ),
           // Follow-up tracker (paid, doctor-scoped). Free tier sees the
           // Upgrade stub instead (Section 9).
           if (scope.canWrite)
