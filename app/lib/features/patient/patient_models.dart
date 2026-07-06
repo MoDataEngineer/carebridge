@@ -150,4 +150,14 @@ class BookableDoctor {
   /// Directory filters — where the hospital is.
   final String city;
   final String state;
+
+  // Value equality by doctor id: the Book tab refetches the directory after
+  // booking, and the dropdown's selected value must still match an item in
+  // the freshly-built list (identity equality crashed the dropdown assert).
+  @override
+  bool operator ==(Object other) =>
+      other is BookableDoctor && other.doctorId == doctorId;
+
+  @override
+  int get hashCode => doctorId.hashCode;
 }
