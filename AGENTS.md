@@ -19,6 +19,8 @@ Built solo, non-technical founder, single GitHub repo, single Flutter codebase.
 
 The app opens with **three buttons, nothing else**: **Patient / Doctor / Diagnostic Partner**. There is no literal "Clinic" button — "Doctor" is the entry point that leads into the clinic/doctor structure below.
 
+> **Amended (2026-07-04, per D8 in DECISIONS.md):** the middle button is labelled **"Hospital"** (same clinic structure behind it), and hospitals **self-register in-app** (hospital name + registration number + mobile + admin PIN), then add doctor profiles under the hospital — same path for solo doctors. Everything else in this section stands.
+
 ### 2.1 Patient
 Standard individual account. Login via ABHA ID (Section 4).
 
@@ -51,7 +53,7 @@ This is the most important structural decision in this spec — read it twice be
   - Row-Level Security (RLS) enforces the access-grant model (Section 7) at the database level, including the admin-inherits-visibility rule and the order-scoped grant type for diagnostic partners.
   - **File storage:** Supabase Storage holds uploaded lab PDFs and scan/X-ray images. Storage access must be gated by the same access-grant logic as database rows — signed URLs or storage-level policy, never just an app-layer check.
 - **Push notifications:** Firebase Cloud Messaging.
-- **AI summary generation:** Claude API, called server-side only from a Supabase Edge Function. Never call it directly from the Flutter client.
+- **AI summary generation:** Claude API, called server-side only from a Supabase Edge Function. Never call it directly from the Flutter client. *(Amended 2026-07-04, per D7: provider is Groq for now — free tier, no training on API data; setting `ANTHROPIC_API_KEY` switches to Claude with no code change.)*
 - **Report viewing:** in-app PDF and image viewer components.
 - **Repo:** single GitHub repo, monorepo layout (Section 3.1).
 
@@ -126,6 +128,8 @@ AGENTS.md                copy of this file
 - Once uploaded, the order-scoped access grant for that lab closes automatically
 
 ## 6. Data model (core tables)
+
+> **Amended (2026-07-04):** the implemented schema has grown per D1–D10 in DECISIONS.md (PIN hashes, scope_sessions, consent codes, device tokens, prescription templates, AI-summary cache, structured prescription schedule, nullable `abha_id`, `clinics.phone`/`verified`). The sketch below remains the conceptual core; `docs/data-model.md` and `supabase/migrations/` are authoritative for columns.
 
 ```
 patients
@@ -213,6 +217,8 @@ notifications
 ## 8. One-touch AI summary — exact spec
 
 **Two layers. Do not let the AI generate layer 1.**
+
+> **Amended (2026-07-04, per D7 in DECISIONS.md):** the LLM behind this spec is currently Groq (`llama-3.3-70b-versatile`, JSON mode), server-side only, until the Claude API key lands (`ANTHROPIC_API_KEY` wins if set). Every rule below applies unchanged regardless of provider.
 
 **Layer 1 — deterministic safety banner (always visible, never AI-generated):** allergies, chronic conditions, current medications as chips from structured patient fields.
 

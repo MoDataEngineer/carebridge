@@ -22,6 +22,7 @@ the clinic has a personal numeric PIN**.
 RLS cannot tell a doctor-scoped from an admin-scoped request when both share one clinic auth user.
 Fix: after clinic login **and** a successful PIN entry (D1), a Supabase **Edge Function mints a
 short-lived scoped JWT** carrying custom claims:
+*(Minting mechanics superseded by D9 — the claims and rules below still apply verbatim.)*
 
 ```
 { clinic_id, active_role: "doctor" | "admin", active_doctor_id: <uuid|null> }
@@ -79,6 +80,46 @@ These are **flagged, not silently chosen** — agent must confirm before wiring 
 - **AI tap-to-source attribution:** Claude returns `sentence_sources`, but the Edge Function must
   **validate every returned `visit_id` / `test_order_id` against the actual input set** and drop any
   hallucinated reference before display. Non-negotiable safety step; no extra vendor.
+
+## D7 — AI summary provider: Groq (interim), Claude-ready (ADOPTED 2026-07-04)
+
+CLAUDE.md Sections 3/8 name the Claude API. Founder approved launching on **Groq**
+(`llama-3.3-70b-versatile`, JSON mode) because its free tier costs nothing and its API terms do
+not train on submitted data. The Edge Function is provider-agnostic: setting `ANTHROPIC_API_KEY`
+switches to Claude with **no code change** (it wins over `GROQ_API_KEY` if both are set).
+Everything else in Section 8 is unchanged: server-side only, structured-fields-only input, exact
+system prompt, source-id validation, mandatory verify label. Cross-border data flow to Groq (US)
+is flagged for DPDP review (audit register M4) — revisit before real launch.
+
+## D8 — "Hospital" entry + self-registration (ADOPTED 2026-07-04, founder instruction)
+
+- The entry button reads **"Hospital"**, not "Doctor" (same clinic structure behind it).
+- Hospitals **self-register in-app**: hospital name + registration/license number + mobile +
+  admin PIN. Solo doctors follow the SAME path — register the hospital, then add their own
+  doctor profile (name, council reg number, council name, specialty, optional HPR) under it.
+- Registration creates the clinic with an empty roster; doctors are added from the admin-scoped
+  "Manage doctors" screen. Supersedes any assumption that clinics are pre-provisioned.
+
+## D9 — Scope claims via GoTrue + access-token hook, not self-minted JWTs (ADOPTED, supersedes D2 mechanics)
+
+D2's *intent* stands (short-lived scoped claims read by RLS; PIN required to switch identity),
+but the *mechanism* changed in Phase 4.5: instead of the Edge Function minting its own HS256
+JWT, each clinic gets a real service-provisioned GoTrue user (password encrypted in Vault,
+service-role-readable only). The `mint-scope-token` function verifies the PIN (D1), writes the
+chosen scope to `scope_sessions`, and a **custom access-token hook** injects
+`clinic_id / active_role / active_doctor_id` into every token GoTrue issues. The client just
+refreshes its session to pick up new claims. Strictly stronger than D2: asymmetric signing,
+standard refresh/revocation, no signing secret in function code.
+
+## D10 — Interim clinic-login hardening until Phase 11 OTP (ADOPTED 2026-07-04, audit H1/H2/M3)
+
+Real SMS OTP needs a paid provider (founder sign-off pending — Phase 11). Until then:
+- Clinic login requires the **registered phone number** as a second factor alongside the
+  registration number (normalized to last-10-digits comparison).
+- Per-IP rolling rate limits on register/login/scope (`carebridge_rate_ok`, 20/10 min).
+- Self-registered hospitals carry `clinics.verified = false` and show a "pending verification"
+  banner until the founder confirms the registration number (founder-settable flag).
+These are explicitly interim; Phase 11 replaces the phone factor with real OTP.
 
 ---
 
