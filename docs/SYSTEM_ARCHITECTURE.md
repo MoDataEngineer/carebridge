@@ -132,9 +132,12 @@ success-marker RAISE — exit code 1 with `*_OK` is a PASS).
 
 ## 7. Known-pending (not defects)
 
-Phase 11 real auth (ABDM patient OTP, clinic
-SMS OTP, partner lab-registry, HPR verification badges), payment gateway
-(Section 9 stub), in-app PDF renderer (signed-URL link today), Android
-emulator / iOS TestFlight builds. Risk-register items H1/H2 carry interim
-mitigations (phone second factor, unverified badge, IP rate limits) until
-Phase 11 replaces them.
+Phase 11a is BUILT flag-gated (D11): Firebase Phone OTP for patient +
+hospital login (ID token verified server-side in mint-scope-token; demo
+login remains until the founder adds the Firebase client config and flips
+`REQUIRE_OTP=true`), and ABHA optional-capture on the patient profile.
+Still pending: Phase 11b ABDM verification (existing-ABHA M1 auth, HPR/HFR
+badges — blocked on the founder's ABDM sandbox application), partner
+lab-registry auth, payment gateway (Section 9 stub), in-app PDF renderer
+(signed-URL link today), Android emulator / iOS TestFlight builds.
+Risk-register H1/H2 interim mitigations stand until REQUIRE_OTP is on.

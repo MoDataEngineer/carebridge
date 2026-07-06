@@ -24,10 +24,46 @@
 // DEPLOY: supabase functions deploy mint-scope-token
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createRemoteJWKSet, jwtVerify } from "https://esm.sh/jose@5";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+// ---- Phase 11: Firebase Phone OTP verification (founder decision 2026-07-06).
+// FIREBASE_PROJECT_ID enables it; REQUIRE_OTP=true makes it mandatory (login +
+// patient_login refuse the interim/demo paths once flipped).
+// Project id: explicit secret, else derived from the FCM service account
+// (already set for Phase 8 push) — same Firebase project, one less secret.
+const FIREBASE_PROJECT_ID = Deno.env.get("FIREBASE_PROJECT_ID") ??
+  (() => {
+    try {
+      const b64 = Deno.env.get("FCM_SERVICE_ACCOUNT_B64");
+      return b64 ? (JSON.parse(atob(b64)).project_id as string ?? "") : "";
+    } catch {
+      return "";
+    }
+  })();
+const REQUIRE_OTP = (Deno.env.get("REQUIRE_OTP") ?? "false") === "true";
+const firebaseJwks = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
+);
+
+// Verify a Firebase ID token and return its verified phone_number (E.164),
+// or null if the token is missing/invalid. NEVER trust the client's phone
+// field when a token is presented — only this claim.
+async function verifiedOtpPhone(idToken: unknown): Promise<string | null> {
+  if (!idToken || !FIREBASE_PROJECT_ID) return null;
+  try {
+    const { payload } = await jwtVerify(String(idToken), firebaseJwks, {
+      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+      audience: FIREBASE_PROJECT_ID,
+    });
+    return (payload.phone_number as string | undefined) ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -89,7 +125,14 @@ Deno.serve(async (req) => {
   // creates the patient row (D3 phone-first), provisions/repairs a real GoTrue
   // user for it, and returns a session so the patient RLS policies apply.
   if (payload.action === "patient_login") {
-    const phone10 = normPhone(payload.phone);
+    // Phase 11: verified OTP wins over the client-claimed phone; without a
+    // token the demo path continues ONLY while REQUIRE_OTP is off.
+    const otpPhone = await verifiedOtpPhone(payload.firebase_id_token);
+    if (REQUIRE_OTP && !otpPhone) {
+      return json({ error: "otp_required",
+        detail: "verify the SMS code before signing in" }, 401);
+    }
+    const phone10 = normPhone(otpPhone ?? payload.phone);
     if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
     const phoneE164 = "+91" + phone10;
 
@@ -215,13 +258,25 @@ Deno.serve(async (req) => {
     if (cErr) return json({ error: "lookup_failed" }, 500);
     if (!clinic) return json({ error: "clinic_not_found" }, 404);
 
-    // H1 interim second factor (real OTP lands in Phase 11): the caller must
-    // present the clinic's REGISTERED phone, not just the public reg number.
-    // Skipped only when registration just happened in this same request.
-    if (registeredReg === null && clinic.phone &&
-        normPhone(payload.phone) !== normPhone(clinic.phone)) {
-      return json({ error: "phone_mismatch",
-        detail: "use the mobile number this hospital registered with" }, 401);
+    // Phase 11 (closes audit H1 when configured): a Firebase-verified OTP for
+    // the clinic's REGISTERED phone. Falls back to the interim phone-match
+    // check while OTP is not yet required. Skipped only when registration just
+    // happened in this same request.
+    if (registeredReg === null && clinic.phone) {
+      const otpPhone = await verifiedOtpPhone(payload.firebase_id_token);
+      if (otpPhone) {
+        if (normPhone(otpPhone) !== normPhone(clinic.phone)) {
+          return json({ error: "phone_mismatch",
+            detail: "the verified number is not this hospital's registered mobile" }, 401);
+        }
+      } else if (REQUIRE_OTP) {
+        return json({ error: "otp_required",
+          detail: "verify the SMS code before signing in" }, 401);
+      } else if (normPhone(payload.phone) !== normPhone(clinic.phone)) {
+        // H1 interim second factor (until REQUIRE_OTP is flipped).
+        return json({ error: "phone_mismatch",
+          detail: "use the mobile number this hospital registered with" }, 401);
+      }
     }
 
     const email = clinicEmail(reg);

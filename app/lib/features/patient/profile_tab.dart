@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'patient_models.dart';
 import 'patient_repository.dart';
+
+/// Official ABHA self-registration (Aadhaar-based). Opened externally — real
+/// in-app ABHA verification needs ABDM sandbox keys (Phase 11b, flagged).
+final Uri _abhaCreateUrl =
+    Uri.parse('https://abha.abdm.gov.in/abha/v3/register/aadhaar');
 
 /// Profile tab: structured allergies / chronic conditions / current medications
 /// (Section 5.1), editable and saved back through the patient-self RLS path.
@@ -16,6 +22,7 @@ class ProfileTab extends ConsumerStatefulWidget {
 class _ProfileTabState extends ConsumerState<ProfileTab> {
   PatientProfile? _profile;
   final _name = TextEditingController();
+  final _abha = TextEditingController();
   late List<String> _allergies;
   late List<String> _chronic;
   late List<String> _meds;
@@ -35,6 +42,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
       setState(() {
         _profile = p;
         _name.text = p.name;
+        _abha.text = p.abhaId ?? '';
         _allergies = [...p.allergies];
         _chronic = [...p.chronicConditions];
         _meds = [...p.currentMedications];
@@ -51,11 +59,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   Future<void> _save() async {
     final base = _profile;
     if (base == null) return;
+    final abha = _abha.text.replaceAll(RegExp(r'[\s-]'), '');
+    if (abha.isNotEmpty && !RegExp(r'^\d{14}$').hasMatch(abha)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('ABHA number is 14 digits — or leave it blank.')));
+      return;
+    }
     setState(() => _saving = true);
     try {
       final updated = await ref.read(patientRepositoryProvider).saveProfile(
             base.copyWith(
               name: _name.text.trim(),
+              abhaId: abha, // blank saves as NULL (repository)
               allergies: _allergies,
               chronicConditions: _chronic,
               currentMedications: _meds,
@@ -78,6 +93,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   @override
   void dispose() {
     _name.dispose();
+    _abha.dispose();
     super.dispose();
   }
 
@@ -96,13 +112,28 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             border: OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 8),
-        if (_profile?.abhaId == null)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('ABHA not linked (optional in pilot)',
-                style: TextStyle(fontStyle: FontStyle.italic)),
+        const SizedBox(height: 12),
+        // D3 / Phase 11: ABHA optional in pilot — captured (not yet verified;
+        // verification needs ABDM sandbox keys). REQUIRE_ABHA flips it to
+        // mandatory later.
+        TextField(
+          controller: _abha,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'ABHA number (optional)',
+            hintText: '14-digit ABHA — leave blank if you don\'t have one',
+            border: OutlineInputBorder(),
           ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () =>
+                launchUrl(_abhaCreateUrl, mode: LaunchMode.externalApplication),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('No ABHA yet? Create one on the official ABDM site'),
+          ),
+        ),
         _ChipEditor(
           label: 'Allergies',
           values: _allergies,

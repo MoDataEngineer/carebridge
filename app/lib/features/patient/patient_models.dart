@@ -24,6 +24,7 @@ class PatientProfile {
 
   PatientProfile copyWith({
     String? name,
+    String? abhaId,
     DateTime? dob,
     List<String>? allergies,
     List<String>? chronicConditions,
@@ -33,7 +34,7 @@ class PatientProfile {
         id: id,
         name: name ?? this.name,
         phone: phone,
-        abhaId: abhaId,
+        abhaId: abhaId ?? this.abhaId,
         dob: dob ?? this.dob,
         allergies: allergies ?? this.allergies,
         chronicConditions: chronicConditions ?? this.chronicConditions,

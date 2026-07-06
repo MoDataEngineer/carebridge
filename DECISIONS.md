@@ -121,6 +121,23 @@ Real SMS OTP needs a paid provider (founder sign-off pending — Phase 11). Unti
   banner until the founder confirms the registration number (founder-settable flag).
 These are explicitly interim; Phase 11 replaces the phone factor with real OTP.
 
+## D11 — OTP via Firebase Phone Auth; ABHA optional-capture until ABDM keys (ADOPTED 2026-07-06)
+
+Founder decisions for Phase 11:
+
+- **OTP provider = Firebase Phone Auth** (Indian numbers/operators; ~USD 0.01/SMS on the Blaze
+  plan; console "test phone numbers" work free for development). The client verifies the SMS code
+  with Firebase and sends the resulting **ID token** to `mint-scope-token`, which verifies it
+  server-side (Google JWKS, issuer/audience pinned to the Firebase project) and trusts ONLY the
+  token's `phone_number` claim. Applies to patient sign-in AND hospital login (fully closes audit
+  H1 once enforced). Flag-gated: no Firebase config in the client = demo login remains, clearly
+  labelled; `REQUIRE_OTP=true` in Supabase secrets makes verified OTP mandatory server-side.
+- **ABHA**: captured as an OPTIONAL 14-digit profile field (unverified), with a link to the
+  official ABDM self-registration page for patients who have none. Verifying an existing ABHA
+  requires ABDM sandbox credentials (M1 APIs: `/v1/auth/init` + OTP confirm) — deferred until the
+  founder's sandbox application is approved. `REQUIRE_ABHA` (D3) flips ABHA to mandatory when the
+  platform is ready. Supersedes nothing; this sequences D3's intent.
+
 ---
 
 ### Net effect on the data model

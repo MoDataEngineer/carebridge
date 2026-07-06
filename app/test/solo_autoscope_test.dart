@@ -19,6 +19,7 @@ class _FakeRepo implements ClinicAuthRepository {
   Future<ClinicLoginResult> login({
     required String registrationNumber,
     required String phone,
+    String? firebaseIdToken,
   }) async {
     return ClinicLoginResult(
       clinicId: 'clinic-1',
@@ -78,6 +79,8 @@ Future<void> _loginAsClinic(WidgetTester tester) async {
   expect(find.text('Hospital sign in'), findsOneWidget);
   await tester.enterText(
       find.widgetWithText(TextField, 'Clinic registration / license number'), 'REG-1');
+  await tester.enterText(
+      find.widgetWithText(TextField, 'Registered mobile number'), '9000000000');
   await tester.tap(find.text('Continue'));
   await tester.pumpAndSettle();
 }

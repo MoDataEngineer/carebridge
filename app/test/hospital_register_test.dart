@@ -21,6 +21,7 @@ class _FakeAuthRepo implements ClinicAuthRepository {
   Future<ClinicLoginResult> login({
     required String registrationNumber,
     required String phone,
+    String? firebaseIdToken,
   }) async =>
       throw UnimplementedError();
 

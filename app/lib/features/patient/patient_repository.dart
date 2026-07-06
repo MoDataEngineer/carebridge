@@ -42,6 +42,8 @@ class SupabasePatientRepository implements PatientRepository {
         .update({
           'name': p.name,
           'dob': p.dob?.toIso8601String(),
+          // D3: ABHA optional in pilot; blank stays NULL (abha_id is unique).
+          'abha_id': (p.abhaId?.trim().isEmpty ?? true) ? null : p.abhaId!.trim(),
           'allergies': p.allergies,
           'chronic_conditions': p.chronicConditions,
           'current_medications': p.currentMedications,

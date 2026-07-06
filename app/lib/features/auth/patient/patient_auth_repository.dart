@@ -10,7 +10,10 @@ import '../../../core/config/supabase_client.dart';
 /// instead of whatever session happened to be lying around in the browser.
 abstract class PatientAuthRepository {
   /// Sign in (or first-time bootstrap, D3 phone-first) by mobile number.
-  Future<void> login(String phone);
+  /// [firebaseIdToken] carries the verified-OTP proof (Phase 11); the server
+  /// checks its phone_number claim matches [phone]. Null = demo path (only
+  /// accepted while REQUIRE_OTP is off server-side).
+  Future<void> login(String phone, {String? firebaseIdToken});
 }
 
 class SupabasePatientAuthRepository implements PatientAuthRepository {
@@ -18,10 +21,11 @@ class SupabasePatientAuthRepository implements PatientAuthRepository {
   final SupabaseClient _client;
 
   @override
-  Future<void> login(String phone) async {
+  Future<void> login(String phone, {String? firebaseIdToken}) async {
     final res = await _client.functions.invoke('mint-scope-token', body: {
       'action': 'patient_login',
       'phone': phone,
+      if (firebaseIdToken != null) 'firebase_id_token': firebaseIdToken,
     });
     final data = res.data as Map<String, dynamic>;
     if (data['error'] != null) {

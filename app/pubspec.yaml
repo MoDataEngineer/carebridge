@@ -20,6 +20,13 @@ dependencies:
   flutter_dotenv: ^5.1.0
   speech_to_text: ^7.4.0
   file_picker: ^11.0.2
+  # Phase 11 (founder decision 2026-07-06): real OTP via Firebase Phone Auth.
+  # Client config (apiKey/appId/projectId) is client-safe and comes from .env;
+  # OTP is flag-gated — absent config keeps the demo login working.
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  # Opens the official ABHA creation page (D3: ABHA optional in pilot).
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

@@ -3,16 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/env.dart';
+import '../../../core/config/phone_otp.dart';
 import '../../../core/routing/app_router.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 import 'patient_auth_repository.dart';
 
-/// Patient sign-in (D3: phone-first; ABHA linking offered inline, not
-/// hard-blocking while ABDM is mocked).
+/// Patient sign-in (D3: phone-first; ABHA optional in pilot).
 ///
-/// PLACEHOLDER: signs the phone in WITHOUT OTP verification (demo only) — but
-/// it now establishes a REAL patient GoTrue session, so the patient RLS
-/// policies apply. Real ABDM/SMS OTP lands in Phase 11.
+/// Phase 11: when Firebase Phone OTP is configured, this is a real two-step
+/// flow — phone → SMS code → verified sign-in. Without the Firebase config it
+/// falls back to the demo (no-OTP) path, clearly labelled.
 class PatientAuthScreen extends ConsumerStatefulWidget {
   const PatientAuthScreen({super.key});
 
@@ -22,25 +22,26 @@ class PatientAuthScreen extends ConsumerStatefulWidget {
 
 class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
   final _phone = TextEditingController();
+  final _code = TextEditingController();
   bool _busy = false;
+  bool _codeSent = false;
 
   @override
   void dispose() {
     _phone.dispose();
+    _code.dispose();
     super.dispose();
   }
 
-  Future<void> _signIn() async {
-    if (_phone.text.trim().length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter your 10-digit mobile number')));
-      return;
-    }
+  String get _phoneE164 {
+    final digits = _phone.text.replaceAll(RegExp(r'\D'), '');
+    return '+91${digits.substring(digits.length >= 10 ? digits.length - 10 : 0)}';
+  }
+
+  Future<void> _run(Future<void> Function() step) async {
     setState(() => _busy = true);
     try {
-      await ref.read(patientAuthRepositoryProvider).login(_phone.text.trim());
-      if (!mounted) return;
-      context.go(Routes.patientHome);
+      await step();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -51,8 +52,44 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
     }
   }
 
+  Future<void> _start() async {
+    if (_phone.text.replaceAll(RegExp(r'\D'), '').length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter your 10-digit mobile number')));
+      return;
+    }
+    final otp = ref.read(phoneOtpProvider);
+    await _run(() async {
+      if (otp.enabled) {
+        await otp.sendCode(_phoneE164);
+        if (mounted) setState(() => _codeSent = true);
+      } else {
+        // Demo path — server refuses this once REQUIRE_OTP is on.
+        await ref.read(patientAuthRepositoryProvider).login(_phone.text.trim());
+        if (mounted) context.go(Routes.patientHome);
+      }
+    });
+  }
+
+  Future<void> _verify() async {
+    if (_code.text.trim().length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter the 6-digit code from the SMS')));
+      return;
+    }
+    await _run(() async {
+      final token = await ref.read(phoneOtpProvider).confirm(_code.text.trim());
+      await ref
+          .read(patientAuthRepositoryProvider)
+          .login(_phone.text.trim(), firebaseIdToken: token);
+      if (mounted) context.go(Routes.patientHome);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final otpEnabled = ref.watch(phoneOtpProvider).enabled;
+
     return ResponsiveScaffold(
       title: 'Patient sign in',
       child: Column(
@@ -61,30 +98,58 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
         children: [
           TextField(
             controller: _phone,
+            enabled: !_codeSent,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: 'Mobile number',
               prefixText: '+91 ',
               border: OutlineInputBorder(),
             ),
-            onSubmitted: (_) => _signIn(),
+            onSubmitted: (_) => _codeSent ? null : _start(),
           ),
+          if (_codeSent) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _code,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'OTP code',
+                hintText: '6-digit code from the SMS',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _verify(),
+            ),
+          ],
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: _busy ? null : _signIn,
+            onPressed: _busy ? null : (_codeSent ? _verify : _start),
             child: _busy
                 ? const SizedBox(
                     height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Sign in'),
+                : Text(_codeSent
+                    ? 'Verify code'
+                    : (otpEnabled ? 'Send OTP' : 'Sign in')),
           ),
+          if (_codeSent)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() {
+                        _codeSent = false;
+                        _code.clear();
+                      }),
+              child: const Text('Change number'),
+            ),
           const SizedBox(height: 24),
-          const _StubBanner(
-            'Demo sign-in — the OTP step is not verified yet. Real ABDM/SMS '
-            'OTP arrives in Phase 11.',
-          ),
+          if (!otpEnabled)
+            const _StubBanner(
+              'Demo sign-in — OTP is not configured yet. Add the Firebase '
+              'config to .env to turn on real SMS codes (Phase 11).',
+            ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () {}, // Phase 11: inline create/link ABHA
+            onPressed: () {}, // ABHA verification needs ABDM sandbox keys (Phase 11b)
             icon: const Icon(Icons.link),
             label: Text(
               Env.requireAbha
