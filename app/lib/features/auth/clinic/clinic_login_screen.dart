@@ -11,9 +11,9 @@ import 'session_controller.dart';
 /// on the doctor count — solo clinics skip the "Who are you?" picker entirely
 /// (guarantee a); multi-doctor clinics go to the picker.
 ///
-/// Phase 11: when Firebase Phone OTP is configured, the registered mobile gets
-/// a real SMS code before login (closes audit H1). Without the config it falls
-/// back to the H1-interim registered-phone check, clearly labelled.
+/// Phase 11 (D12): the registered mobile gets a real SMS code (closes audit
+/// H1 when enforced). While the SMS provider is not configured server-side,
+/// falls back to the H1-interim registered-phone check.
 class ClinicLoginScreen extends ConsumerStatefulWidget {
   const ClinicLoginScreen({super.key});
 
@@ -37,17 +37,12 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
     super.dispose();
   }
 
-  String get _phoneE164 {
-    final digits = _phone.text.replaceAll(RegExp(r'\D'), '');
-    return '+91${digits.substring(digits.length >= 10 ? digits.length - 10 : 0)}';
-  }
-
-  Future<void> _login({String? firebaseIdToken}) async {
+  Future<void> _login({String? otpCode}) async {
     final controller = ref.read(clinicSessionControllerProvider.notifier);
     final result = await controller.login(
       registrationNumber: _reg.text.trim(),
       phone: _phone.text.trim(),
-      firebaseIdToken: firebaseIdToken,
+      otpCode: otpCode,
     );
     if (!mounted) return;
     // Guarantee (a): solo clinic is auto-scoped — straight to PIN, no picker.
@@ -69,9 +64,8 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
       _error = null;
     });
     try {
-      final otp = ref.read(phoneOtpProvider);
-      if (otp.enabled) {
-        await otp.sendCode(_phoneE164);
+      final sent = await ref.read(phoneOtpProvider).sendCode(_phone.text.trim());
+      if (sent) {
         if (mounted) setState(() => _codeSent = true);
       } else {
         await _login(); // H1-interim path (registered-phone check server-side)
@@ -89,8 +83,7 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
       _error = null;
     });
     try {
-      final token = await ref.read(phoneOtpProvider).confirm(_code.text.trim());
-      await _login(firebaseIdToken: token);
+      await _login(otpCode: _code.text.trim());
     } catch (e) {
       if (mounted) setState(() => _error = 'Login failed: $e');
     } finally {
@@ -100,8 +93,6 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final otpEnabled = ref.watch(phoneOtpProvider).enabled;
-
     return ResponsiveScaffold(
       title: 'Hospital sign in',
       child: Column(
@@ -147,9 +138,7 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
             child: _busy
                 ? const SizedBox(
                     height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(_codeSent
-                    ? 'Verify code'
-                    : (otpEnabled ? 'Send OTP' : 'Continue')),
+                : Text(_codeSent ? 'Verify code' : 'Continue'),
           ),
           if (_codeSent)
             TextButton(
@@ -174,9 +163,8 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
           const SizedBox(height: 16),
           Text(
             'One login per hospital; doctors are added under it (Section 2.2) — '
-            'solo doctors register their practice the same way.'
-            '${otpEnabled ? '' : ' OTP not configured — using the registered-'
-                'phone check until Firebase is set up (Phase 11).'}',
+            'solo doctors register their practice the same way. An SMS code is '
+            'sent to the registered mobile once OTP (MSG91) is set up.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

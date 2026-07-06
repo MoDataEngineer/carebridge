@@ -1,93 +1,47 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'env.dart';
+import 'supabase_client.dart';
 
-/// Phase 11: real OTP via Firebase Phone Auth (founder decision 2026-07-06 —
-/// Indian numbers, Indian telecom operators; ~USD 0.01/SMS on Blaze, free
-/// console "test phone numbers" for development).
+/// Phase 11 (D12): custom OTP, Supabase-hosted. The mint-scope-token function
+/// generates/stores/verifies the codes; only the SMS send is provider-specific
+/// (MSG91 first — founder decision 2026-07-06, Firebase SMS too costly).
 ///
-/// Thin seam so widget tests fake it and the app degrades gracefully: when
-/// the Firebase client config is absent, [enabled] is false and the login
-/// screens keep the demo (no-OTP) path, clearly labelled.
+/// Thin seam so widget tests fake it. [sendCode] returns false when the
+/// server has no SMS provider configured yet — the login screens then fall
+/// back to the demo (no-OTP) path, which the server accepts only while
+/// REQUIRE_OTP is off.
 abstract class PhoneOtp {
-  bool get enabled;
-
-  /// Send an SMS code to an E.164 phone (+91…). Must be called before
-  /// [confirm]. On web this triggers Firebase's invisible reCAPTCHA.
-  Future<void> sendCode(String phoneE164);
-
-  /// Verify the 6-digit code; returns a Firebase ID token whose
-  /// `phone_number` claim the server verifies (mint-scope-token).
-  Future<String> confirm(String smsCode);
+  /// Ask the server to SMS a code. True = code sent, show the code field.
+  /// False = OTP not configured server-side (demo fallback).
+  Future<bool> sendCode(String phone);
 }
 
-class DisabledPhoneOtp implements PhoneOtp {
-  @override
-  bool get enabled => false;
-  @override
-  Future<void> sendCode(String phoneE164) =>
-      throw StateError('OTP is not configured');
-  @override
-  Future<String> confirm(String smsCode) =>
-      throw StateError('OTP is not configured');
-}
-
-class FirebasePhoneOtp implements PhoneOtp {
-  ConfirmationResult? _webConfirmation; // web flow
-  String? _verificationId; // mobile flow
+class SupabasePhoneOtp implements PhoneOtp {
+  SupabasePhoneOtp(this._client);
+  final SupabaseClient _client;
 
   @override
-  bool get enabled => true;
-
-  @override
-  Future<void> sendCode(String phoneE164) async {
-    final auth = FirebaseAuth.instance;
-    if (kIsWeb) {
-      _webConfirmation = await auth.signInWithPhoneNumber(phoneE164);
-      return;
+  Future<bool> sendCode(String phone) async {
+    try {
+      final res = await _client.functions.invoke('mint-scope-token', body: {
+        'action': 'send_otp',
+        'phone': phone,
+      });
+      final data = res.data as Map<String, dynamic>;
+      return data['sent'] == true;
+    } on FunctionException catch (e) {
+      final details = e.details;
+      final err = details is Map<String, dynamic> ? details['error'] : null;
+      if (err == 'otp_not_configured') return false; // demo fallback
+      rethrow;
     }
-    final sent = Completer<void>();
-    await auth.verifyPhoneNumber(
-      phoneNumber: phoneE164,
-      verificationCompleted: (_) {}, // Android auto-retrieval; code entry still shown
-      verificationFailed: (e) {
-        if (!sent.isCompleted) sent.completeError(e);
-      },
-      codeSent: (verificationId, _) {
-        _verificationId = verificationId;
-        if (!sent.isCompleted) sent.complete();
-      },
-      codeAutoRetrievalTimeout: (verificationId) {
-        _verificationId = verificationId;
-      },
-    );
-    await sent.future;
-  }
-
-  @override
-  Future<String> confirm(String smsCode) async {
-    final UserCredential cred;
-    if (kIsWeb) {
-      final c = _webConfirmation;
-      if (c == null) throw StateError('Send the code first.');
-      cred = await c.confirm(smsCode);
-    } else {
-      final vid = _verificationId;
-      if (vid == null) throw StateError('Send the code first.');
-      cred = await FirebaseAuth.instance.signInWithCredential(
-        PhoneAuthProvider.credential(verificationId: vid, smsCode: smsCode),
-      );
-    }
-    final token = await cred.user?.getIdToken();
-    if (token == null) throw StateError('No ID token after OTP.');
-    return token;
   }
 }
 
 final phoneOtpProvider = Provider<PhoneOtp>((_) {
-  return Env.hasFirebase ? FirebasePhoneOtp() : DisabledPhoneOtp();
+  if (!SupabaseService.isInitialized) {
+    throw StateError('Supabase not initialized — provide a PhoneOtp override.');
+  }
+  return SupabasePhoneOtp(SupabaseService.client);
 });

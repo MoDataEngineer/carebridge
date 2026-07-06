@@ -1,4 +1,5 @@
-﻿import 'package:carebridge/core/routing/app_router.dart';
+﻿import 'package:carebridge/core/config/phone_otp.dart';
+import 'package:carebridge/core/routing/app_router.dart';
 import 'package:carebridge/core/theme/app_theme.dart';
 import 'package:carebridge/features/auth/clinic/clinic_auth_repository.dart';
 import 'package:carebridge/features/auth/clinic/clinic_models.dart';
@@ -19,7 +20,7 @@ class _FakeRepo implements ClinicAuthRepository {
   Future<ClinicLoginResult> login({
     required String registrationNumber,
     required String phone,
-    String? firebaseIdToken,
+    String? otpCode,
   }) async {
     return ClinicLoginResult(
       clinicId: 'clinic-1',
@@ -63,9 +64,16 @@ class _FakeRepo implements ClinicAuthRepository {
       );
 }
 
+/// OTP "not configured" — the login screen takes the demo path (D12).
+class _NoOtp implements PhoneOtp {
+  @override
+  Future<bool> sendCode(String phone) async => false;
+}
+
 Widget _harness(int doctorCount) => ProviderScope(
       overrides: [
         clinicAuthRepositoryProvider.overrideWithValue(_FakeRepo(doctorCount)),
+        phoneOtpProvider.overrideWithValue(_NoOtp()),
       ],
       child: MaterialApp.router(
         theme: AppTheme.light,

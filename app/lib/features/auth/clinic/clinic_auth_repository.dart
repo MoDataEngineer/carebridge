@@ -8,14 +8,14 @@ import 'clinic_models.dart';
 /// Abstraction over the clinic auth / scope-minting backend so the session logic
 /// (and the solo-vs-picker decision) can be unit/widget-tested without a network.
 abstract class ClinicAuthRepository {
-  /// Clinic login: returns the roster + a base token. Phase 11:
-  /// [firebaseIdToken] carries the verified-OTP proof for the phone; without
-  /// it the server falls back to the H1-interim registered-phone check (until
+  /// Clinic login: returns the roster + a base token. Phase 11 (D12):
+  /// [otpCode] is the SMS code for the REGISTERED phone; without it the
+  /// server falls back to the H1-interim registered-phone check (until
   /// REQUIRE_OTP is switched on server-side).
   Future<ClinicLoginResult> login({
     required String registrationNumber,
     required String phone,
-    String? firebaseIdToken,
+    String? otpCode,
   });
 
   /// Register a NEW hospital (founder decision 2026-07-04): hospital name +
@@ -61,13 +61,13 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
   Future<ClinicLoginResult> login({
     required String registrationNumber,
     required String phone,
-    String? firebaseIdToken,
+    String? otpCode,
   }) async {
     final res = await _client.functions.invoke('mint-scope-token', body: {
       'action': 'login',
       'registration_number': registrationNumber,
       'phone': phone,
-      if (firebaseIdToken != null) 'firebase_id_token': firebaseIdToken,
+      if (otpCode != null) 'otp_code': otpCode,
     });
     final data = res.data as Map<String, dynamic>;
     // Adopt the clinic's GoTrue session client-side. From here on, PostgREST

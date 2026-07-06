@@ -35,12 +35,12 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
   Future<ClinicLoginResult> login({
     required String registrationNumber,
     required String phone,
-    String? firebaseIdToken,
+    String? otpCode,
   }) async {
     final result = await _repo.login(
       registrationNumber: registrationNumber,
       phone: phone,
-      firebaseIdToken: firebaseIdToken,
+      otpCode: otpCode,
     );
 
     ScopeTarget? pending;

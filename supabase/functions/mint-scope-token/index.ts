@@ -24,45 +24,43 @@
 // DEPLOY: supabase functions deploy mint-scope-token
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createRemoteJWKSet, jwtVerify } from "https://esm.sh/jose@5";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-// ---- Phase 11: Firebase Phone OTP verification (founder decision 2026-07-06).
-// FIREBASE_PROJECT_ID enables it; REQUIRE_OTP=true makes it mandatory (login +
-// patient_login refuse the interim/demo paths once flipped).
-// Project id: explicit secret, else derived from the FCM service account
-// (already set for Phase 8 push) — same Firebase project, one less secret.
-const FIREBASE_PROJECT_ID = Deno.env.get("FIREBASE_PROJECT_ID") ??
-  (() => {
-    try {
-      const b64 = Deno.env.get("FCM_SERVICE_ACCOUNT_B64");
-      return b64 ? (JSON.parse(atob(b64)).project_id as string ?? "") : "";
-    } catch {
-      return "";
-    }
-  })();
+// ---- Phase 11 (D12): custom OTP, Supabase-hosted (founder decision
+// 2026-07-06 — Firebase SMS too costly for Indian volumes). Codes are
+// generated/hashed/verified HERE (auth_otps table, 5-min expiry, 5 attempts,
+// single use); only the SMS SEND is provider-specific. MSG91 first:
+//   MSG91_AUTH_KEY + MSG91_TEMPLATE_ID  -> real SMS via the MSG91 flow API
+//   (absent)                            -> OTP off; demo login continues
+// REQUIRE_OTP=true makes a verified code mandatory (refuses demo/interim).
+const MSG91_AUTH_KEY = Deno.env.get("MSG91_AUTH_KEY") ?? "";
+const MSG91_TEMPLATE_ID = Deno.env.get("MSG91_TEMPLATE_ID") ?? "";
+const OTP_CONFIGURED = MSG91_AUTH_KEY !== "" && MSG91_TEMPLATE_ID !== "";
 const REQUIRE_OTP = (Deno.env.get("REQUIRE_OTP") ?? "false") === "true";
-const firebaseJwks = createRemoteJWKSet(
-  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"),
-);
 
-// Verify a Firebase ID token and return its verified phone_number (E.164),
-// or null if the token is missing/invalid. NEVER trust the client's phone
-// field when a token is presented — only this claim.
-async function verifiedOtpPhone(idToken: unknown): Promise<string | null> {
-  if (!idToken || !FIREBASE_PROJECT_ID) return null;
-  try {
-    const { payload } = await jwtVerify(String(idToken), firebaseJwks, {
-      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-      audience: FIREBASE_PROJECT_ID,
-    });
-    return (payload.phone_number as string | undefined) ?? null;
-  } catch {
-    return null;
+const sha256 = async (s: string) => {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, "0")).join("");
+};
+
+// Verify a submitted OTP code for a phone (normalized last-10). Consumes the
+// code on success; counts attempts on failure. Returns true only on a live,
+// unconsumed, correct code.
+// deno-lint-ignore no-explicit-any
+async function otpValid(admin: any, phone10: string, code: unknown): Promise<boolean> {
+  if (!code || !/^[0-9]{6}$/.test(String(code))) return false;
+  const { data: row } = await admin.from("auth_otps").select("*").eq("phone", phone10).maybeSingle();
+  if (!row || row.consumed || row.attempts >= 5) return false;
+  if (new Date(row.expires_at).getTime() < Date.now()) return false;
+  if (row.code_hash !== await sha256(String(code))) {
+    await admin.from("auth_otps").update({ attempts: row.attempts + 1 }).eq("phone", phone10);
+    return false;
   }
+  await admin.from("auth_otps").update({ consumed: true }).eq("phone", phone10);
+  return true;
 }
 
 const CORS = {
@@ -109,7 +107,7 @@ Deno.serve(async (req) => {
   // Audit M3: per-IP rolling-window rate limit on login/register (the
   // unauthenticated actions). 20 attempts / 10 minutes per IP per action.
   if (payload.action === "login" || payload.action === "register" ||
-      payload.action === "patient_login") {
+      payload.action === "patient_login" || payload.action === "send_otp") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
     const { data: allowed, error: rateErr } = await admin.rpc("carebridge_rate_ok", {
       p_key: `${payload.action}:${ip}`,
@@ -119,21 +117,60 @@ Deno.serve(async (req) => {
     if (!allowed) return json({ error: "too_many_attempts" }, 429);
   }
 
+  // ---------------- action: send_otp ----------------
+  // D12: generate + store a hashed 6-digit code and send it via MSG91.
+  // Responds otp_not_configured while MSG91 secrets are absent — the client
+  // falls back to the demo path (only accepted while REQUIRE_OTP is off).
+  if (payload.action === "send_otp") {
+    if (!OTP_CONFIGURED) return json({ error: "otp_not_configured" }, 501);
+    const phone10 = normPhone(payload.phone);
+    if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
+
+    // Per-phone limit on top of the per-IP one above (SMS costs money).
+    const { data: phoneOk } = await admin.rpc("carebridge_rate_ok", {
+      p_key: `send_otp:${phone10}`, p_max: 5,
+    });
+    if (!phoneOk) return json({ error: "too_many_attempts" }, 429);
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const { error: storeErr } = await admin.from("auth_otps").upsert({
+      phone: phone10,
+      code_hash: await sha256(code),
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      attempts: 0,
+      consumed: false,
+    });
+    if (storeErr) return json({ error: "otp_store_failed" }, 500);
+
+    const smsRes = await fetch("https://control.msg91.com/api/v5/flow/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", authkey: MSG91_AUTH_KEY },
+      body: JSON.stringify({
+        template_id: MSG91_TEMPLATE_ID,
+        short_url: "0",
+        recipients: [{ mobiles: `91${phone10}`, otp: code }],
+      }),
+    });
+    if (!smsRes.ok) return json({ error: "sms_send_failed" }, 502);
+    return json({ sent: true });
+  }
+
   // ---------------- action: patient_login ----------------
   // PLACEHOLDER (Phase 11): the phone alone signs in — NO OTP is verified yet
   // (real ABDM/SMS OTP replaces this; flagged per Section 12 + D3). Finds or
   // creates the patient row (D3 phone-first), provisions/repairs a real GoTrue
   // user for it, and returns a session so the patient RLS policies apply.
   if (payload.action === "patient_login") {
-    // Phase 11: verified OTP wins over the client-claimed phone; without a
-    // token the demo path continues ONLY while REQUIRE_OTP is off.
-    const otpPhone = await verifiedOtpPhone(payload.firebase_id_token);
-    if (REQUIRE_OTP && !otpPhone) {
-      return json({ error: "otp_required",
-        detail: "verify the SMS code before signing in" }, 401);
-    }
-    const phone10 = normPhone(otpPhone ?? payload.phone);
+    const phone10 = normPhone(payload.phone);
     if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
+    // D12: a valid single-use code proves control of the phone; without one
+    // the demo path continues ONLY while REQUIRE_OTP is off.
+    const codeOk = await otpValid(admin, phone10, payload.otp_code);
+    if (!codeOk && (REQUIRE_OTP || payload.otp_code)) {
+      return json({ error: "otp_rejected",
+        detail: "the SMS code is wrong or expired" }, 401);
+    }
     const phoneE164 = "+91" + phone10;
 
     // Find the patient by phone (stored formats vary — match on last 10).
@@ -258,24 +295,20 @@ Deno.serve(async (req) => {
     if (cErr) return json({ error: "lookup_failed" }, 500);
     if (!clinic) return json({ error: "clinic_not_found" }, 404);
 
-    // Phase 11 (closes audit H1 when configured): a Firebase-verified OTP for
-    // the clinic's REGISTERED phone. Falls back to the interim phone-match
-    // check while OTP is not yet required. Skipped only when registration just
-    // happened in this same request.
+    // Phase 11 D12 (closes audit H1 when enforced): the caller must present
+    // the clinic's REGISTERED phone; a valid single-use OTP for THAT phone
+    // proves control of it. Falls back to the interim phone-match check while
+    // REQUIRE_OTP is off. Skipped only when registration just happened in
+    // this same request.
     if (registeredReg === null && clinic.phone) {
-      const otpPhone = await verifiedOtpPhone(payload.firebase_id_token);
-      if (otpPhone) {
-        if (normPhone(otpPhone) !== normPhone(clinic.phone)) {
-          return json({ error: "phone_mismatch",
-            detail: "the verified number is not this hospital's registered mobile" }, 401);
-        }
-      } else if (REQUIRE_OTP) {
-        return json({ error: "otp_required",
-          detail: "verify the SMS code before signing in" }, 401);
-      } else if (normPhone(payload.phone) !== normPhone(clinic.phone)) {
-        // H1 interim second factor (until REQUIRE_OTP is flipped).
+      if (normPhone(payload.phone) !== normPhone(clinic.phone)) {
         return json({ error: "phone_mismatch",
           detail: "use the mobile number this hospital registered with" }, 401);
+      }
+      const codeOk = await otpValid(admin, normPhone(clinic.phone), payload.otp_code);
+      if (!codeOk && (REQUIRE_OTP || payload.otp_code)) {
+        return json({ error: "otp_rejected",
+          detail: "the SMS code is wrong or expired" }, 401);
       }
     }
 

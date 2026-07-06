@@ -132,10 +132,11 @@ success-marker RAISE — exit code 1 with `*_OK` is a PASS).
 
 ## 7. Known-pending (not defects)
 
-Phase 11a is BUILT flag-gated (D11): Firebase Phone OTP for patient +
-hospital login (ID token verified server-side in mint-scope-token; demo
-login remains until the founder adds the Firebase client config and flips
-`REQUIRE_OTP=true`), and ABHA optional-capture on the patient profile.
+Phase 11a is BUILT flag-gated (D11/D12): Supabase-hosted OTP for patient +
+hospital login (codes hashed in the service-only `auth_otps` table; MSG91
+sends the SMS once `MSG91_AUTH_KEY`/`MSG91_TEMPLATE_ID` land; demo login
+remains until `REQUIRE_OTP=true`), and ABHA optional-capture on the
+patient profile.
 Still pending: Phase 11b ABDM verification (existing-ABHA M1 auth, HPR/HFR
 badges — blocked on the founder's ABDM sandbox application), partner
 lab-registry auth, payment gateway (Section 9 stub), in-app PDF renderer

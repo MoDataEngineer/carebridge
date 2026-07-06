@@ -121,7 +121,7 @@ Real SMS OTP needs a paid provider (founder sign-off pending — Phase 11). Unti
   banner until the founder confirms the registration number (founder-settable flag).
 These are explicitly interim; Phase 11 replaces the phone factor with real OTP.
 
-## D11 — OTP via Firebase Phone Auth; ABHA optional-capture until ABDM keys (ADOPTED 2026-07-06)
+## D11 — OTP via Firebase Phone Auth; ABHA optional-capture until ABDM keys (OTP PART SUPERSEDED BY D12)
 
 Founder decisions for Phase 11:
 
@@ -137,6 +137,23 @@ Founder decisions for Phase 11:
   requires ABDM sandbox credentials (M1 APIs: `/v1/auth/init` + OTP confirm) — deferred until the
   founder's sandbox application is approved. `REQUIRE_ABHA` (D3) flips ABHA to mandatory when the
   platform is ready. Supersedes nothing; this sequences D3's intent.
+
+## D12 — OTP is Supabase-hosted; MSG91 sends the SMS (ADOPTED 2026-07-06, supersedes D11's provider)
+
+Founder revisited D11 the same day after seeing Firebase SMS pricing (~USD 0.01/SMS): too costly
+for Indian volumes. New shape, same trust guarantees:
+
+- **Codes are OURS**: `mint-scope-token` generates a 6-digit code, stores a SHA-256 hash in the
+  service-only `auth_otps` table (5-minute expiry, 5 attempts, single use), and verifies it at
+  login. Rate-limited per IP AND per phone (SMS costs money).
+- **Only the SMS send is provider-specific** (MSG91 flow API, ~INR 0.15–0.25/SMS after DLT
+  registration) — swappable via `MSG91_AUTH_KEY`/`MSG91_TEMPLATE_ID` secrets, exactly like the
+  Groq/Claude AI-provider pattern (D7). No Firebase client SDK in the app at all.
+- **Degrades cleanly**: while the MSG91 secrets are absent, `send_otp` answers
+  `otp_not_configured` and the login screens fall back to the demo path; `REQUIRE_OTP=true`
+  refuses that fallback once SMS works. Applies to patient sign-in AND hospital login (H1).
+- Bonus over Firebase: no authorized-domain restriction — OTP works from LAN/IP test hosts.
+- Founder TODO: MSG91 account + KYC + DLT entity/template registration (one-time, ~days).
 
 ---
 

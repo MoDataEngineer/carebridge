@@ -8,35 +8,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-/// Phase 11 — patient sign-in with Firebase Phone OTP (faked):
-///   - OTP configured: phone -> Send OTP -> code entry -> Verify -> login is
-///     called WITH the verified Firebase ID token -> home.
-///   - OTP not configured: single-step demo sign-in (no token), banner shown.
+/// Phase 11 (D12) — patient sign-in with the Supabase-hosted OTP (faked):
+///   - SMS provider configured: phone -> code sent -> code entry -> Verify ->
+///     login is called WITH the code -> home.
+///   - not configured: sendCode reports false -> single-step demo sign-in
+///     (no code) -> home.
 class _FakeOtp implements PhoneOtp {
+  _FakeOtp(this.configured);
+  final bool configured;
   String? sentTo;
-  String? confirmedCode;
 
   @override
-  bool get enabled => true;
-
-  @override
-  Future<void> sendCode(String phoneE164) async => sentTo = phoneE164;
-
-  @override
-  Future<String> confirm(String smsCode) async {
-    confirmedCode = smsCode;
-    return 'fake-firebase-token';
+  Future<bool> sendCode(String phone) async {
+    if (!configured) return false;
+    sentTo = phone;
+    return true;
   }
 }
 
 class _FakeAuth implements PatientAuthRepository {
   String? phone;
-  String? token;
+  String? code;
 
   @override
-  Future<void> login(String p, {String? firebaseIdToken}) async {
+  Future<void> login(String p, {String? otpCode}) async {
     phone = p;
-    token = firebaseIdToken;
+    code = otpCode;
   }
 }
 
@@ -57,33 +54,32 @@ Widget _app({required PhoneOtp otp, required PatientAuthRepository auth}) {
 }
 
 void main() {
-  testWidgets('OTP flow: send code, verify, login carries the token',
+  testWidgets('OTP flow: send code, verify, login carries the code',
       (tester) async {
     tester.view.physicalSize = const Size(1200, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final otp = _FakeOtp();
+    final otp = _FakeOtp(true);
     final auth = _FakeAuth();
     await tester.pumpWidget(_app(otp: otp, auth: auth));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.widgetWithText(TextField, 'Mobile number'), '9000000001');
-    await tester.tap(find.text('Send OTP'));
+    await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
-    expect(otp.sentTo, '+919000000001');
+    expect(otp.sentTo, '9000000001');
 
     await tester.enterText(find.widgetWithText(TextField, 'OTP code'), '123456');
     await tester.tap(find.text('Verify code'));
     await tester.pumpAndSettle();
 
-    expect(otp.confirmedCode, '123456');
-    expect(auth.token, 'fake-firebase-token'); // verified proof reaches login
+    expect(auth.code, '123456'); // the code reaches the server-side check
     expect(find.text('PATIENT_HOME'), findsOneWidget);
   });
 
-  testWidgets('OTP not configured: demo sign-in without token, banner shown',
+  testWidgets('OTP not configured: demo sign-in without a code',
       (tester) async {
     tester.view.physicalSize = const Size(1200, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -91,16 +87,15 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final auth = _FakeAuth();
-    await tester.pumpWidget(_app(otp: DisabledPhoneOtp(), auth: auth));
+    await tester.pumpWidget(_app(otp: _FakeOtp(false), auth: auth));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Demo sign-in'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Mobile number'), '9000000001');
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
     expect(auth.phone, '9000000001');
-    expect(auth.token, isNull);
+    expect(auth.code, isNull);
     expect(find.text('PATIENT_HOME'), findsOneWidget);
   });
 }

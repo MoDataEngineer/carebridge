@@ -1,9 +1,7 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/config/env.dart';
 import 'core/config/supabase_client.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -20,20 +18,8 @@ Future<void> main() async {
   }
 
   // No-op unless Supabase creds are present (placeholder mode otherwise).
+  // (OTP needs no client config — it's Supabase-hosted, D12.)
   await SupabaseService.init();
-
-  // Phase 11: Firebase Phone OTP — only when the client config is present
-  // (client-safe values; real SMS needs the founder's Firebase setup).
-  if (Env.hasFirebase) {
-    await Firebase.initializeApp(
-      options: FirebaseOptions(
-        apiKey: Env.firebaseApiKey,
-        appId: Env.firebaseAppId,
-        messagingSenderId: Env.firebaseMessagingSenderId,
-        projectId: Env.firebaseProjectId,
-      ),
-    );
-  }
 
   runApp(const ProviderScope(child: CareBridgeApp()));
 }

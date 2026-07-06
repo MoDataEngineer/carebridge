@@ -10,9 +10,10 @@ import 'patient_auth_repository.dart';
 
 /// Patient sign-in (D3: phone-first; ABHA optional in pilot).
 ///
-/// Phase 11: when Firebase Phone OTP is configured, this is a real two-step
-/// flow — phone → SMS code → verified sign-in. Without the Firebase config it
-/// falls back to the demo (no-OTP) path, clearly labelled.
+/// Phase 11 (D12): phone → SMS code → verified sign-in, with the OTP
+/// generated/verified by our own backend (MSG91 sends the SMS). While the
+/// SMS provider is not configured server-side, sendCode reports "not
+/// configured" and the screen falls back to the demo (no-OTP) path.
 class PatientAuthScreen extends ConsumerStatefulWidget {
   const PatientAuthScreen({super.key});
 
@@ -31,11 +32,6 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
     _phone.dispose();
     _code.dispose();
     super.dispose();
-  }
-
-  String get _phoneE164 {
-    final digits = _phone.text.replaceAll(RegExp(r'\D'), '');
-    return '+91${digits.substring(digits.length >= 10 ? digits.length - 10 : 0)}';
   }
 
   Future<void> _run(Future<void> Function() step) async {
@@ -58,13 +54,13 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
           const SnackBar(content: Text('Enter your 10-digit mobile number')));
       return;
     }
-    final otp = ref.read(phoneOtpProvider);
     await _run(() async {
-      if (otp.enabled) {
-        await otp.sendCode(_phoneE164);
+      final sent = await ref.read(phoneOtpProvider).sendCode(_phone.text.trim());
+      if (sent) {
         if (mounted) setState(() => _codeSent = true);
       } else {
-        // Demo path — server refuses this once REQUIRE_OTP is on.
+        // OTP not configured server-side — demo path (refused once
+        // REQUIRE_OTP is flipped on).
         await ref.read(patientAuthRepositoryProvider).login(_phone.text.trim());
         if (mounted) context.go(Routes.patientHome);
       }
@@ -78,18 +74,15 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
       return;
     }
     await _run(() async {
-      final token = await ref.read(phoneOtpProvider).confirm(_code.text.trim());
       await ref
           .read(patientAuthRepositoryProvider)
-          .login(_phone.text.trim(), firebaseIdToken: token);
+          .login(_phone.text.trim(), otpCode: _code.text.trim());
       if (mounted) context.go(Routes.patientHome);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final otpEnabled = ref.watch(phoneOtpProvider).enabled;
-
     return ResponsiveScaffold(
       title: 'Patient sign in',
       child: Column(
@@ -127,9 +120,7 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
             child: _busy
                 ? const SizedBox(
                     height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(_codeSent
-                    ? 'Verify code'
-                    : (otpEnabled ? 'Send OTP' : 'Sign in')),
+                : Text(_codeSent ? 'Verify code' : 'Sign in'),
           ),
           if (_codeSent)
             TextButton(
@@ -142,11 +133,10 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
               child: const Text('Change number'),
             ),
           const SizedBox(height: 24),
-          if (!otpEnabled)
-            const _StubBanner(
-              'Demo sign-in — OTP is not configured yet. Add the Firebase '
-              'config to .env to turn on real SMS codes (Phase 11).',
-            ),
+          const _StubBanner(
+            'You\'ll get an SMS code when OTP is set up (MSG91). Until then '
+            'this signs in directly — demo mode.',
+          ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: () {}, // ABHA verification needs ABDM sandbox keys (Phase 11b)
