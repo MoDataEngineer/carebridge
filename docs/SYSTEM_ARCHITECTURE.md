@@ -83,6 +83,12 @@ returned under the mandatory verify label. Provider switch to the Claude API
 is a secrets change (`ANTHROPIC_API_KEY` wins if set), no code change.
 No patient identifiers (name/phone/ABHA) are sent to the LLM; diagnoses and
 medications are — flagged for DPDP cross-border review (register M4).
+Residency note (verified 2026-07-06): the Supabase project runs in
+ap-south-1 (Mumbai), so ALL stored records/files are India-resident; the
+Groq call is the ONLY cross-border data flow. ABDM sandbox certification
+(STQC checklist: "no data is shared out of India") requires resolving M4
+first — swap to an India-resident LLM endpoint (a secrets change per D7)
+or exclude the AI summary from the certified scope.
 
 **Notifications (Phase 8).** Enqueue happens AT THE DATABASE: appointment
 trigger (24 h before), follow-up trigger (9 am on the date), report-ready
