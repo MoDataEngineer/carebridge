@@ -100,18 +100,15 @@ class SupabasePatientRepository implements PatientRepository {
 
   @override
   Future<List<BookableDoctor>> bookableDoctors() async {
-    // Phase 3 placeholder: a real searchable directory comes later. Returns
-    // active doctors the patient can request an appointment with.
-    final rows = await _client
-        .from('doctors')
-        .select('id, name, clinic_id, clinics(name)')
-        .eq('is_active', true);
-    return (rows as List)
+    // Narrow directory RPC (0020): a patient session cannot (and must not)
+    // select the doctors table directly — it carries pin_hash.
+    final rows = await _client.rpc('carebridge_bookable_doctors');
+    return ((rows ?? []) as List)
         .map((m) => BookableDoctor(
-              doctorId: m['id'] as String,
+              doctorId: m['doctor_id'] as String,
               clinicId: m['clinic_id'] as String,
-              doctorName: (m['name'] ?? '') as String,
-              clinicName: ((m['clinics']?['name']) ?? '') as String,
+              doctorName: (m['doctor_name'] ?? '') as String,
+              clinicName: (m['clinic_name'] ?? '') as String,
             ))
         .toList();
   }

@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
 
   // Audit M3: per-IP rolling-window rate limit on login/register (the
   // unauthenticated actions). 20 attempts / 10 minutes per IP per action.
-  if (payload.action === "login" || payload.action === "register") {
+  if (payload.action === "login" || payload.action === "register" ||
+      payload.action === "patient_login") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
     const { data: allowed, error: rateErr } = await admin.rpc("carebridge_rate_ok", {
       p_key: `${payload.action}:${ip}`,
@@ -80,6 +81,84 @@ Deno.serve(async (req) => {
     });
     if (rateErr) return json({ error: "rate_check_failed" }, 500);
     if (!allowed) return json({ error: "too_many_attempts" }, 429);
+  }
+
+  // ---------------- action: patient_login ----------------
+  // PLACEHOLDER (Phase 11): the phone alone signs in — NO OTP is verified yet
+  // (real ABDM/SMS OTP replaces this; flagged per Section 12 + D3). Finds or
+  // creates the patient row (D3 phone-first), provisions/repairs a real GoTrue
+  // user for it, and returns a session so the patient RLS policies apply.
+  if (payload.action === "patient_login") {
+    const phone10 = normPhone(payload.phone);
+    if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
+    const phoneE164 = "+91" + phone10;
+
+    // Find the patient by phone (stored formats vary — match on last 10).
+    let { data: patient } = await admin
+      .from("patients")
+      .select("id, name, auth_user_id")
+      .like("phone", `%${phone10}`)
+      .limit(1)
+      .maybeSingle();
+    if (!patient) {
+      // First sign-in: bootstrap a phone-keyed record (D3); profile fills it in.
+      const { data: created, error: insErr } = await admin
+        .from("patients")
+        .insert({ name: "", phone: phoneE164 })
+        .select("id, name, auth_user_id")
+        .single();
+      if (insErr) return json({ error: "signup_failed" }, 500);
+      patient = created;
+    }
+
+    const email = `patient.${phone10}@carebridge.internal`;
+    const password = randomSecret(); // one-time; reset on every login
+    let authUserId = patient.auth_user_id as string | null;
+
+    // Repair stale links (e.g. a seeded id that has no real GoTrue user).
+    if (authUserId) {
+      const { data: u, error: getErr } = await admin.auth.admin.getUserById(authUserId);
+      if (getErr || !u?.user) authUserId = null;
+    }
+    if (!authUserId) {
+      const { data: created, error: createErr } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { patient_id: patient.id, kind: "patient" },
+      });
+      if (createErr) {
+        // The user may already exist from an earlier run — look it up.
+        const { data: existingId } = await admin.rpc("carebridge_auth_user_by_email", {
+          p_email: email,
+        });
+        if (!existingId) return json({ error: "provision_failed" }, 500);
+        authUserId = existingId as string;
+        const { error: pwErr } = await admin.auth.admin.updateUserById(authUserId, { password });
+        if (pwErr) return json({ error: "reset_failed" }, 500);
+      } else {
+        authUserId = created.user!.id;
+      }
+    } else {
+      const { error: pwErr } = await admin.auth.admin.updateUserById(authUserId, { password });
+      if (pwErr) return json({ error: "reset_failed" }, 500);
+    }
+    await admin.from("patients").update({ auth_user_id: authUserId }).eq("id", patient.id);
+
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: session, error: sErr } =
+      await userClient.auth.signInWithPassword({ email, password });
+    if (sErr || !session.session) return json({ error: "signin_failed" }, 500);
+
+    return json({
+      placeholder: true, // no OTP verified — demo posture until Phase 11
+      patient_id: patient.id,
+      name: patient.name ?? "",
+      access_token: session.session.access_token,
+      refresh_token: session.session.refresh_token,
+    });
   }
 
   // ---------------- action: register ----------------
