@@ -1,16 +1,19 @@
 -- CareBridge — DEMO SEED (founder phone-testing only; not part of migrations).
 -- Idempotent: fixed UUIDs + on-conflict-do-nothing, safe to re-run.
 -- Login cheatsheet (demo PINs, fine to be readable here — demo data only):
---   Clinic "Sunrise Family Clinic"  reg DEMO-001   (multi-doctor -> "Who are you?")
+--   Hospital login is by MOBILE alone (2026-07-06):
+--   "Sunrise Family Clinic"  +91 9000000000  Chennai   (multi-doctor -> "Who are you?")
 --     Dr Priya Sharma  PIN 1111 | Dr Arjun Mehta  PIN 2222 | Admin PIN 9999
---   Clinic "QuickCare Clinic"       reg DEMO-002   (solo -> auto-scope, no picker)
+--   "QuickCare Clinic"       +91 9000000010  Bengaluru (solo -> auto-scope, no picker)
 --     Dr Ravi Kumar    PIN 1234
 --   Patient Asha Rao (+919000000001) has a standing grant to Dr Priya, one visit,
 --   one prescription, and a structured HbA1c report -> AI summary has real input.
 
-insert into clinics (id, name, registration_number, admin_pin_hash) values
-  ('11111111-1111-1111-1111-111111111101', 'Sunrise Family Clinic', 'DEMO-001', crypt('9999', gen_salt('bf'))),
-  ('11111111-1111-1111-1111-111111111102', 'QuickCare Clinic',      'DEMO-002', crypt('4321', gen_salt('bf')))
+insert into clinics (id, name, registration_number, admin_pin_hash, phone, verified, state, city) values
+  ('11111111-1111-1111-1111-111111111101', 'Sunrise Family Clinic', 'DEMO-001', crypt('9999', gen_salt('bf')),
+   '+919000000000', true, 'Tamil Nadu', 'Chennai'),
+  ('11111111-1111-1111-1111-111111111102', 'QuickCare Clinic',      'DEMO-002', crypt('4321', gen_salt('bf')),
+   '+919000000010', true, 'Karnataka', 'Bengaluru')
 on conflict (registration_number) do nothing;
 
 insert into doctors (id, clinic_id, name, council_reg_number, council_name, specialty, pin_hash) values

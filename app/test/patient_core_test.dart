@@ -132,6 +132,11 @@ void main() {
   });
 
   testWidgets('booking an appointment adds it to the list', (tester) async {
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(_harness(_FakePatientRepo()));
     await tester.pumpAndSettle();
 
@@ -140,7 +145,7 @@ void main() {
     expect(find.text('No appointments yet.'), findsOneWidget);
 
     // Clinic-first flow (2026-07-06): pick the hospital, then the doctor.
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.text('Hospital / clinic'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('City Clinic').last);
     await tester.pumpAndSettle();

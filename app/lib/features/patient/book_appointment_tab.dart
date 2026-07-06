@@ -17,8 +17,10 @@ class BookAppointmentTab extends ConsumerStatefulWidget {
 class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
   late Future<List<BookableDoctor>> _doctors;
   late Future<List<AppointmentRecord>> _appointments;
-  String? _selectedClinicId; // step 1: hospital/clinic
-  BookableDoctor? _selected; // step 2: doctor at that clinic
+  String? _selectedState; // location filters (2026-07-06)
+  String? _selectedCity;
+  String? _selectedClinicId; // hospital/clinic
+  BookableDoctor? _selected; // doctor at that clinic
   DateTime _when = DateTime.now().add(const Duration(days: 1));
   bool _booking = false;
 
@@ -73,21 +75,80 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
             }
             final docs = snap.data ?? const [];
             if (docs.isEmpty) return const Text('No doctors available to book yet.');
-            // Step 1: distinct hospitals/clinics, alphabetical.
+            // Location filters: distinct states, then cities in that state.
+            final states = docs.map((d) => d.state).where((s) => s.isNotEmpty).toSet().toList()..sort();
+            final cities = docs
+                .where((d) => _selectedState == null || d.state == _selectedState)
+                .map((d) => d.city)
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
+            // Hospitals in the chosen place, alphabetical.
+            final inPlace = docs.where((d) =>
+                (_selectedState == null || d.state == _selectedState) &&
+                (_selectedCity == null || d.city == _selectedCity));
             final clinics = <String, String>{}; // id -> name
-            for (final d in docs) {
+            for (final d in inPlace) {
               clinics.putIfAbsent(d.clinicId, () => d.clinicName);
             }
             final clinicIds = clinics.keys.toList()
               ..sort((a, b) => clinics[a]!.compareTo(clinics[b]!));
-            // Step 2: doctors at the chosen clinic only.
+            // Doctors at the chosen clinic only.
             final atClinic = [
               for (final d in docs)
                 if (d.clinicId == _selectedClinicId) d
             ]..sort((a, b) => a.doctorName.compareTo(b.doctorName));
             return Column(
               children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _selectedState,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'State',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          for (final s in states)
+                            DropdownMenuItem(value: s, child: Text(s)),
+                        ],
+                        onChanged: (v) => setState(() {
+                          _selectedState = v;
+                          _selectedCity = null;
+                          _selectedClinicId = null;
+                          _selected = null;
+                        }),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('city-$_selectedState'),
+                        initialValue: _selectedCity,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'City',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          for (final c in cities)
+                            DropdownMenuItem(value: c, child: Text(c)),
+                        ],
+                        onChanged: (v) => setState(() {
+                          _selectedCity = v;
+                          _selectedClinicId = null;
+                          _selected = null;
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  key: ValueKey('clinic-$_selectedState-$_selectedCity'),
                   initialValue: _selectedClinicId,
                   isExpanded: true,
                   decoration: const InputDecoration(
@@ -119,15 +180,49 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
                     for (final d in atClinic)
                       DropdownMenuItem(
                         value: d,
-                        child: Text(d.specialty.isEmpty
-                            ? d.doctorName
-                            : '${d.doctorName} · ${d.specialty}'),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                d.specialty.isEmpty
+                                    ? d.doctorName
+                                    : '${d.doctorName} · ${d.specialty}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (d.hprVerified) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.verified, size: 16, color: Colors.blue),
+                            ],
+                          ],
+                        ),
                       ),
                   ],
                   onChanged: _selectedClinicId == null
                       ? null
                       : (v) => setState(() => _selected = v),
                 ),
+                // Trust card (2026-07-06): the doctor's council registration
+                // is always shown; the badge only when HPR is verified.
+                if (_selected != null) ...[
+                  const SizedBox(height: 8),
+                  Card(
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(
+                        _selected!.hprVerified ? Icons.verified : Icons.badge_outlined,
+                        color: _selected!.hprVerified ? Colors.blue : null,
+                      ),
+                      title: Text(_selected!.councilRegNumber.isEmpty
+                          ? 'License details not provided'
+                          : 'Reg. no ${_selected!.councilRegNumber}'
+                            '${_selected!.councilName.isEmpty ? '' : ' · ${_selected!.councilName}'}'),
+                      subtitle: Text(_selected!.hprVerified
+                          ? 'Verified in the national Health Professional Registry'
+                          : 'Registered medical practitioner'),
+                    ),
+                  ),
+                ],
               ],
             );
           },

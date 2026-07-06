@@ -112,6 +112,11 @@ class SupabasePatientRepository implements PatientRepository {
               doctorName: (m['doctor_name'] ?? '') as String,
               clinicName: (m['clinic_name'] ?? '') as String,
               specialty: (m['specialty'] ?? '') as String,
+              councilRegNumber: (m['council_reg_number'] ?? '') as String,
+              councilName: (m['council_name'] ?? '') as String,
+              hprVerified: m['hpr_verified'] == true,
+              city: (m['city'] ?? '') as String,
+              state: (m['state'] ?? '') as String,
             ))
         .toList();
   }

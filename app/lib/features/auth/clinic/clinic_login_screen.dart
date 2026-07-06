@@ -22,7 +22,6 @@ class ClinicLoginScreen extends ConsumerStatefulWidget {
 }
 
 class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
-  final _reg = TextEditingController();
   final _phone = TextEditingController();
   final _code = TextEditingController();
   bool _busy = false;
@@ -31,7 +30,6 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
 
   @override
   void dispose() {
-    _reg.dispose();
     _phone.dispose();
     _code.dispose();
     super.dispose();
@@ -40,7 +38,6 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
   Future<void> _login({String? otpCode}) async {
     final controller = ref.read(clinicSessionControllerProvider.notifier);
     final result = await controller.login(
-      registrationNumber: _reg.text.trim(),
       phone: _phone.text.trim(),
       otpCode: otpCode,
     );
@@ -54,9 +51,8 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
   }
 
   Future<void> _continue() async {
-    if (_reg.text.trim().isEmpty ||
-        _phone.text.replaceAll(RegExp(r'\D'), '').length < 10) {
-      setState(() => _error = 'Enter the registration number and 10-digit mobile.');
+    if (_phone.text.replaceAll(RegExp(r'\D'), '').length < 10) {
+      setState(() => _error = 'Enter the 10-digit registered mobile number.');
       return;
     }
     setState(() {
@@ -99,15 +95,9 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
-            controller: _reg,
-            enabled: !_codeSent,
-            decoration: const InputDecoration(
-              labelText: 'Clinic registration / license number',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
+          // 2026-07-06: login is by mobile alone — the registration number is
+          // collected once at registration and shown to patients as a trust
+          // signal, not used as a login credential.
           TextField(
             controller: _phone,
             enabled: !_codeSent,

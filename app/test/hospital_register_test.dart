@@ -19,7 +19,6 @@ class _FakeAuthRepo implements ClinicAuthRepository {
 
   @override
   Future<ClinicLoginResult> login({
-    required String registrationNumber,
     required String phone,
     String? otpCode,
   }) async =>
@@ -30,6 +29,8 @@ class _FakeAuthRepo implements ClinicAuthRepository {
     required String name,
     required String registrationNumber,
     required String phone,
+    required String state,
+    required String city,
     required String adminPin,
     String? address,
   }) async {
@@ -109,6 +110,13 @@ void main() {
         'KA-2026-778');
     await tester.enterText(
         find.widgetWithText(TextField, 'Mobile number'), '9876543210');
+    // State + city are required (2026-07-06 — patients filter by place).
+    await tester.tap(find.text('State'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Karnataka').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextField, 'City / town'), 'Mysuru');
     await tester.enterText(
         find.widgetWithText(TextField, 'Set an Admin PIN (4–6 digits)'), '5566');
     await tester.tap(find.text('Register hospital'));

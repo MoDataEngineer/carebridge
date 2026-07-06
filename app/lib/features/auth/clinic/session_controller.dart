@@ -33,12 +33,10 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
   /// auto-scoped to that doctor here and the "Who are you?" picker is skipped.
   /// Only a multi-doctor clinic gets a pending picker.
   Future<ClinicLoginResult> login({
-    required String registrationNumber,
     required String phone,
     String? otpCode,
   }) async {
     final result = await _repo.login(
-      registrationNumber: registrationNumber,
       phone: phone,
       otpCode: otpCode,
     );
@@ -61,6 +59,8 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
     required String name,
     required String registrationNumber,
     required String phone,
+    required String state,
+    required String city,
     required String adminPin,
     String? address,
   }) async {
@@ -68,10 +68,13 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
       name: name,
       registrationNumber: registrationNumber,
       phone: phone,
+      state: state,
+      city: city,
       adminPin: adminPin,
       address: address,
     );
-    state = ClinicSessionState(login: result);
+    // `state` (the String param) shadows StateNotifier.state here.
+    super.state = ClinicSessionState(login: result);
     return result;
   }
 

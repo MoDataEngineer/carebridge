@@ -252,8 +252,11 @@ Deno.serve(async (req) => {
     const reg = String(payload.registration_number ?? "").trim();
     const adminPin = String(payload.admin_pin ?? "");
     const address = String(payload.address ?? "").trim() || null;
-    // PLACEHOLDER: phone/OTP verification lands in Phase 11.
+    // 2026-07-06: hospitals carry state + city (patient directory filters).
+    const state = String(payload.state ?? "").trim();
+    const city = String(payload.city ?? "").trim();
     if (!name || !reg) return json({ error: "name_and_registration_required" }, 400);
+    if (!state || !city) return json({ error: "state_and_city_required" }, 400);
     if (!/^[0-9]{4,6}$/.test(adminPin)) return json({ error: "admin_pin_must_be_4_to_6_digits" }, 400);
 
     const { data: existing, error: exErr } = await admin
@@ -261,14 +264,18 @@ Deno.serve(async (req) => {
     if (exErr) return json({ error: "lookup_failed" }, 500);
     if (existing) return json({ error: "registration_number_already_exists" }, 409);
 
-    // H1 interim: the registration phone becomes the login second factor.
+    // 2026-07-06: login is by mobile ALONE, so one phone = one hospital.
     // H2: self-registered hospitals start UNVERIFIED (founder flips the flag).
-    if (normPhone(payload.phone).length < 10) {
-      return json({ error: "valid_phone_required" }, 400);
-    }
+    const phone10 = normPhone(payload.phone);
+    if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
+    const { data: samePhone } = await admin
+      .from("clinics").select("id").like("phone", `%${phone10}`).limit(1).maybeSingle();
+    if (samePhone) return json({ error: "phone_already_registered",
+      detail: "a hospital already signs in with this mobile number" }, 409);
+
     const { data: created, error: insErr } = await admin
       .from("clinics")
-      .insert({ name, registration_number: reg, address,
+      .insert({ name, registration_number: reg, address, state, city,
                 phone: String(payload.phone), verified: false })
       .select("id")
       .single();
@@ -284,27 +291,29 @@ Deno.serve(async (req) => {
   }
 
   // ---------------- action: login (also completes register) ----------------
+  // 2026-07-06: hospital login is by MOBILE alone (unique per clinic, 0022);
+  // the registration/license number is collected once at registration.
   if (payload.action === "login" || registeredReg !== null) {
-    const reg = registeredReg ?? String(payload.registration_number ?? "");
-    // PLACEHOLDER: real phone/OTP verification lands in Phase 11.
-    const { data: clinic, error: cErr } = await admin
+    let clinicQuery = admin
       .from("clinics")
-      .select("id, name, auth_user_id, subscription_status, phone, verified")
-      .eq("registration_number", reg)
-      .maybeSingle();
+      .select("id, name, registration_number, auth_user_id, subscription_status, phone, verified");
+    if (registeredReg !== null) {
+      clinicQuery = clinicQuery.eq("registration_number", registeredReg);
+    } else {
+      const phone10 = normPhone(payload.phone);
+      if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
+      clinicQuery = clinicQuery.like("phone", `%${phone10}`);
+    }
+    const { data: clinic, error: cErr } = await clinicQuery.maybeSingle();
     if (cErr) return json({ error: "lookup_failed" }, 500);
-    if (!clinic) return json({ error: "clinic_not_found" }, 404);
+    if (!clinic) return json({ error: "clinic_not_found",
+      detail: "no hospital signs in with this mobile number" }, 404);
 
-    // Phase 11 D12 (closes audit H1 when enforced): the caller must present
-    // the clinic's REGISTERED phone; a valid single-use OTP for THAT phone
-    // proves control of it. Falls back to the interim phone-match check while
-    // REQUIRE_OTP is off. Skipped only when registration just happened in
-    // this same request.
+    // Phase 11 D12 (closes audit H1 when enforced): a valid single-use OTP
+    // for the registered phone proves control of it. Until REQUIRE_OTP is
+    // flipped, phone-only login stands (demo posture — same as patients).
+    // Skipped only when registration just happened in this same request.
     if (registeredReg === null && clinic.phone) {
-      if (normPhone(payload.phone) !== normPhone(clinic.phone)) {
-        return json({ error: "phone_mismatch",
-          detail: "use the mobile number this hospital registered with" }, 401);
-      }
       const codeOk = await otpValid(admin, normPhone(clinic.phone), payload.otp_code);
       if (!codeOk && (REQUIRE_OTP || payload.otp_code)) {
         return json({ error: "otp_rejected",
@@ -312,7 +321,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    const email = clinicEmail(reg);
+    // GoTrue email derives from the reg number — unchanged, so existing
+    // clinic auth users keep working.
+    const email = clinicEmail(clinic.registration_number as string);
     let authUserId = clinic.auth_user_id as string | null;
     let password: string;
 

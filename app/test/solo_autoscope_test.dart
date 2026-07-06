@@ -18,7 +18,6 @@ class _FakeRepo implements ClinicAuthRepository {
 
   @override
   Future<ClinicLoginResult> login({
-    required String registrationNumber,
     required String phone,
     String? otpCode,
   }) async {
@@ -38,6 +37,8 @@ class _FakeRepo implements ClinicAuthRepository {
     required String name,
     required String registrationNumber,
     required String phone,
+    required String state,
+    required String city,
     required String adminPin,
     String? address,
   }) async =>
@@ -85,8 +86,7 @@ Future<void> _loginAsClinic(WidgetTester tester) async {
   await tester.tap(find.text('Hospital'));
   await tester.pumpAndSettle();
   expect(find.text('Hospital sign in'), findsOneWidget);
-  await tester.enterText(
-      find.widgetWithText(TextField, 'Clinic registration / license number'), 'REG-1');
+  // 2026-07-06: hospital login is by mobile alone — no registration number.
   await tester.enterText(
       find.widgetWithText(TextField, 'Registered mobile number'), '9000000000');
   await tester.tap(find.text('Continue'));

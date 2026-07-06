@@ -128,10 +128,26 @@ class BookableDoctor {
     required this.doctorName,
     required this.clinicName,
     this.specialty = '',
+    this.councilRegNumber = '',
+    this.councilName = '',
+    this.hprVerified = false,
+    this.city = '',
+    this.state = '',
   });
   final String doctorId;
   final String clinicId;
   final String doctorName;
   final String clinicName;
   final String specialty;
+
+  /// Trust signals shown to patients (2026-07-06): the doctor's council
+  /// registration number is always visible; the badge appears only when the
+  /// HPR id has been verified (founder-set until the Phase 11b HPR check).
+  final String councilRegNumber;
+  final String councilName;
+  final bool hprVerified;
+
+  /// Directory filters — where the hospital is.
+  final String city;
+  final String state;
 }

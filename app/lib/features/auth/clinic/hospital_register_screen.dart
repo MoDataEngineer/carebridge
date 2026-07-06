@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
+import '../../../shared/constants/indian_states.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 import 'session_controller.dart';
 
@@ -21,8 +22,10 @@ class _HospitalRegisterScreenState extends ConsumerState<HospitalRegisterScreen>
   final _name = TextEditingController();
   final _reg = TextEditingController();
   final _phone = TextEditingController();
+  final _city = TextEditingController();
   final _pin = TextEditingController();
   final _address = TextEditingController();
+  String? _state; // 2026-07-06: patients filter the directory by state/city
   bool _busy = false;
   String? _error;
 
@@ -31,6 +34,7 @@ class _HospitalRegisterScreenState extends ConsumerState<HospitalRegisterScreen>
     _name.dispose();
     _reg.dispose();
     _phone.dispose();
+    _city.dispose();
     _pin.dispose();
     _address.dispose();
     super.dispose();
@@ -39,6 +43,10 @@ class _HospitalRegisterScreenState extends ConsumerState<HospitalRegisterScreen>
   Future<void> _register() async {
     if (_name.text.trim().isEmpty || _reg.text.trim().isEmpty) {
       setState(() => _error = 'Hospital name and registration number are required.');
+      return;
+    }
+    if (_state == null || _city.text.trim().isEmpty) {
+      setState(() => _error = 'State and city are required — patients find you by place.');
       return;
     }
     if (!RegExp(r'^[0-9]{4,6}$').hasMatch(_pin.text)) {
@@ -54,6 +62,8 @@ class _HospitalRegisterScreenState extends ConsumerState<HospitalRegisterScreen>
             name: _name.text.trim(),
             registrationNumber: _reg.text.trim(),
             phone: _phone.text.trim(),
+            state: _state!,
+            city: _city.text.trim(),
             adminPin: _pin.text,
             address: _address.text.trim().isEmpty ? null : _address.text.trim(),
           );
@@ -100,6 +110,28 @@ class _HospitalRegisterScreenState extends ConsumerState<HospitalRegisterScreen>
             decoration: const InputDecoration(
               labelText: 'Mobile number',
               prefixText: '+91 ',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: _state,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'State',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              for (final s in kIndianStates)
+                DropdownMenuItem(value: s, child: Text(s)),
+            ],
+            onChanged: (v) => setState(() => _state = v),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _city,
+            decoration: const InputDecoration(
+              labelText: 'City / town',
               border: OutlineInputBorder(),
             ),
           ),

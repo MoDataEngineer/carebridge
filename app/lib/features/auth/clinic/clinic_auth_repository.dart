@@ -8,24 +8,25 @@ import 'clinic_models.dart';
 /// Abstraction over the clinic auth / scope-minting backend so the session logic
 /// (and the solo-vs-picker decision) can be unit/widget-tested without a network.
 abstract class ClinicAuthRepository {
-  /// Clinic login: returns the roster + a base token. Phase 11 (D12):
-  /// [otpCode] is the SMS code for the REGISTERED phone; without it the
-  /// server falls back to the H1-interim registered-phone check (until
-  /// REQUIRE_OTP is switched on server-side).
+  /// Clinic login by MOBILE alone (2026-07-06 — the registration number is
+  /// collected once at registration; the phone uniquely identifies the
+  /// hospital). Phase 11 (D12): [otpCode] is the SMS code for that phone;
+  /// without it the demo path stands until REQUIRE_OTP is on server-side.
   Future<ClinicLoginResult> login({
-    required String registrationNumber,
     required String phone,
     String? otpCode,
   });
 
-  /// Register a NEW hospital (founder decision 2026-07-04): hospital name +
-  /// registration/license number + mobile + admin PIN. Returns a logged-in
-  /// result with an empty roster; doctors are added under it afterwards.
-  /// Same path for solo doctors.
+  /// Register a NEW hospital (founder decisions 2026-07-04/06): hospital name
+  /// + registration/license number + mobile + state/city + admin PIN.
+  /// Returns a logged-in result with an empty roster; doctors are added
+  /// under it afterwards. Same path for solo doctors.
   Future<ClinicLoginResult> register({
     required String name,
     required String registrationNumber,
     required String phone,
+    required String state,
+    required String city,
     required String adminPin,
     String? address,
   });
@@ -59,13 +60,11 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
 
   @override
   Future<ClinicLoginResult> login({
-    required String registrationNumber,
     required String phone,
     String? otpCode,
   }) async {
     final res = await _client.functions.invoke('mint-scope-token', body: {
       'action': 'login',
-      'registration_number': registrationNumber,
       'phone': phone,
       if (otpCode != null) 'otp_code': otpCode,
     });
@@ -90,6 +89,8 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
     required String name,
     required String registrationNumber,
     required String phone,
+    required String state,
+    required String city,
     required String adminPin,
     String? address,
   }) async {
@@ -98,6 +99,8 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
       'name': name,
       'registration_number': registrationNumber,
       'phone': phone,
+      'state': state,
+      'city': city,
       'admin_pin': adminPin,
       'address': address,
     });
