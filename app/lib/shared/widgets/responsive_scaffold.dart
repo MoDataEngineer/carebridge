@@ -27,12 +27,16 @@ class ResponsiveScaffold extends StatelessWidget {
         automaticallyImplyLeading: showBack,
         centerTitle: wide,
       ),
+      // Scrollable so tall forms survive the on-screen keyboard on mobile
+      // (the register form overflowed by ~336px when the keyboard opened).
       body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxContentWidth),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: child,
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxContentWidth),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: child,
+            ),
           ),
         ),
       ),
