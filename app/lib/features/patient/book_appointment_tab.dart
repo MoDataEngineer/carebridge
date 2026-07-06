@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'patient_models.dart';
 import 'patient_repository.dart';
 
-/// Book-appointment tab (Section 5.1). Phase 3 is a simple request form (pick a
-/// doctor + date/time); real availability/slots is Phase 10. Shows the patient's
-/// existing appointments below.
+/// Book-appointment tab (Section 5.1): pick the hospital/clinic first, then a
+/// doctor at that clinic (with specialty), then date → request. Shows the
+/// patient's existing appointments below.
 class BookAppointmentTab extends ConsumerStatefulWidget {
   const BookAppointmentTab({super.key});
 
@@ -17,7 +17,8 @@ class BookAppointmentTab extends ConsumerStatefulWidget {
 class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
   late Future<List<BookableDoctor>> _doctors;
   late Future<List<AppointmentRecord>> _appointments;
-  BookableDoctor? _selected;
+  String? _selectedClinicId; // step 1: hospital/clinic
+  BookableDoctor? _selected; // step 2: doctor at that clinic
   DateTime _when = DateTime.now().add(const Duration(days: 1));
   bool _booking = false;
 
@@ -72,21 +73,62 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
             }
             final docs = snap.data ?? const [];
             if (docs.isEmpty) return const Text('No doctors available to book yet.');
-            return DropdownButtonFormField<BookableDoctor>(
-              initialValue: _selected,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Doctor',
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                for (final d in docs)
-                  DropdownMenuItem(
-                    value: d,
-                    child: Text('${d.doctorName} · ${d.clinicName}'),
+            // Step 1: distinct hospitals/clinics, alphabetical.
+            final clinics = <String, String>{}; // id -> name
+            for (final d in docs) {
+              clinics.putIfAbsent(d.clinicId, () => d.clinicName);
+            }
+            final clinicIds = clinics.keys.toList()
+              ..sort((a, b) => clinics[a]!.compareTo(clinics[b]!));
+            // Step 2: doctors at the chosen clinic only.
+            final atClinic = [
+              for (final d in docs)
+                if (d.clinicId == _selectedClinicId) d
+            ]..sort((a, b) => a.doctorName.compareTo(b.doctorName));
+            return Column(
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedClinicId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Hospital / clinic',
+                    border: OutlineInputBorder(),
                   ),
+                  items: [
+                    for (final id in clinicIds)
+                      DropdownMenuItem(value: id, child: Text(clinics[id]!)),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _selectedClinicId = v;
+                    _selected = null; // clinic changed — re-pick the doctor
+                  }),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<BookableDoctor>(
+                  key: ValueKey(_selectedClinicId), // reset on clinic change
+                  initialValue: _selected,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Doctor',
+                    helperText: _selectedClinicId == null
+                        ? 'Pick a hospital first'
+                        : null,
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final d in atClinic)
+                      DropdownMenuItem(
+                        value: d,
+                        child: Text(d.specialty.isEmpty
+                            ? d.doctorName
+                            : '${d.doctorName} · ${d.specialty}'),
+                      ),
+                  ],
+                  onChanged: _selectedClinicId == null
+                      ? null
+                      : (v) => setState(() => _selected = v),
+                ),
               ],
-              onChanged: (v) => setState(() => _selected = v),
             );
           },
         ),

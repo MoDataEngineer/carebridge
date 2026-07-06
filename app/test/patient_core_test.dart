@@ -139,10 +139,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No appointments yet.'), findsOneWidget);
 
-    // Pick the doctor from the dropdown.
+    // Clinic-first flow (2026-07-06): pick the hospital, then the doctor.
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('City Clinic').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<BookableDoctor>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Dr Rao · City Clinic').last);
+    await tester.tap(find.text('Dr Rao').last);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Request appointment'));

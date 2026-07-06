@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/constants/medical_specialties.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 import 'clinic_models.dart';
 import 'roster_repository.dart';
@@ -36,6 +37,7 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
     final councilReg = TextEditingController();
     final councilName = TextEditingController();
     final specialty = TextEditingController();
+    final specialtyFocus = FocusNode();
     final hpr = TextEditingController();
     final pin = TextEditingController();
 
@@ -62,9 +64,48 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
                 decoration: const InputDecoration(
                     labelText: 'Council name (e.g. NMC)'),
               ),
-              TextField(
-                controller: specialty,
-                decoration: const InputDecoration(labelText: 'Specialty'),
+              // ID-4 specialty: searchable picker over the standard list —
+              // type to filter, tap to select; free text stays allowed so an
+              // unlisted sub-specialty never blocks adding a doctor.
+              RawAutocomplete<String>(
+                textEditingController: specialty,
+                focusNode: specialtyFocus,
+                optionsBuilder: (v) {
+                  final q = v.text.trim().toLowerCase();
+                  if (q.isEmpty) return kMedicalSpecialties;
+                  return kMedicalSpecialties
+                      .where((s) => s.toLowerCase().contains(q));
+                },
+                fieldViewBuilder: (ctx, ctrl, focus, _) => TextField(
+                  controller: ctrl,
+                  focusNode: focus,
+                  decoration: const InputDecoration(
+                    labelText: 'Specialty',
+                    hintText: 'Type to search — e.g. Cardiology',
+                  ),
+                ),
+                optionsViewBuilder: (ctx, onSelected, options) => Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4,
+                    child: ConstrainedBox(
+                      constraints:
+                          const BoxConstraints(maxHeight: 220, maxWidth: 280),
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        children: [
+                          for (final o in options)
+                            ListTile(
+                              dense: true,
+                              title: Text(o),
+                              onTap: () => onSelected(o),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
               TextField(
                 controller: hpr,

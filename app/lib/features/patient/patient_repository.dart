@@ -111,6 +111,7 @@ class SupabasePatientRepository implements PatientRepository {
               clinicId: m['clinic_id'] as String,
               doctorName: (m['doctor_name'] ?? '') as String,
               clinicName: (m['clinic_name'] ?? '') as String,
+              specialty: (m['specialty'] ?? '') as String,
             ))
         .toList();
   }

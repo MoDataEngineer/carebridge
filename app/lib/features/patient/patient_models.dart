@@ -127,9 +127,11 @@ class BookableDoctor {
     required this.clinicId,
     required this.doctorName,
     required this.clinicName,
+    this.specialty = '',
   });
   final String doctorId;
   final String clinicId;
   final String doctorName;
   final String clinicName;
+  final String specialty;
 }
