@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/fade_slide_in.dart';
+import '../../shared/widgets/glass_panel.dart';
 import 'consent_models.dart';
 import 'consent_repository.dart';
 
@@ -52,13 +54,60 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
   Future<void> _shareCode() async {
     try {
       final code = await ref.read(consentRepositoryProvider).createConsentCode();
-      if (mounted) setState(() => _code = code);
+      if (!mounted) return;
+      setState(() => _code = code);
+      _showCodeOverlay(code);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
+  }
+
+  /// Present the consent code as a frosted-glass overlay (UI brief §2 — the
+  /// "Share your record" overlay is exactly where glassmorphism belongs). The
+  /// code lives ONLY here, so a patient shows it full-screen and it never
+  /// clutters the scrolling list.
+  void _showCodeOverlay(ConsentCode code) {
+    final scheme = Theme.of(context).colorScheme;
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.25),
+      builder: (ctx) => Center(
+        child: FadeSlideIn(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: GlassPanel(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.qr_code_2, size: 56, color: scheme.primary),
+                  const SizedBox(height: 12),
+                  Text('Show this code to your doctor',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(ctx).textTheme.titleMedium),
+                  const SizedBox(height: 16),
+                  SelectableText(
+                    code.code,
+                    style: const TextStyle(
+                        fontSize: 32, letterSpacing: 4, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Expires ${code.expiresAt.toString().substring(0, 16)}',
+                      style: Theme.of(ctx).textTheme.bodySmall),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -80,21 +129,20 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
             const Text('Generate a one-time code to show a doctor at your visit. '
                 'It expires in 10 minutes.'),
             const SizedBox(height: 8),
-            if (_code != null)
-              Card(
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                child: ListTile(
-                  leading: const Icon(Icons.qr_code_2),
-                  title: SelectableText(_code!.code,
-                      style: const TextStyle(fontSize: 22, letterSpacing: 2)),
-                  subtitle: Text('Expires ${_code!.expiresAt.toString().substring(0, 16)}'),
-                ),
-              ),
             FilledButton.icon(
               onPressed: _shareCode,
               icon: const Icon(Icons.add_moderator),
               label: const Text('Generate consent code'),
             ),
+            if (_code != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _showCodeOverlay(_code!),
+                  icon: const Icon(Icons.qr_code_2, size: 18),
+                  label: const Text('Show my code again'),
+                ),
+              ),
 
             _section(context, 'Pending requests'),
             if (d.requests.isEmpty)

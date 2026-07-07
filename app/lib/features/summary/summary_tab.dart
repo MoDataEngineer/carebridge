@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/fade_slide_in.dart';
 import 'summary_models.dart';
 import 'summary_repository.dart';
 
@@ -84,10 +85,7 @@ class _PatientSummaryTabState extends ConsumerState<PatientSummaryTab> {
             future: _summary,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
-                return const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return const _GeneratingCard();
               }
               if (snap.hasError) {
                 return Padding(
@@ -95,7 +93,7 @@ class _PatientSummaryTabState extends ConsumerState<PatientSummaryTab> {
                   child: Text('Could not generate summary: ${snap.error}'),
                 );
               }
-              return _narrative(context, snap.data!);
+              return FadeSlideIn(child: _narrative(context, snap.data!));
             },
           ),
       ],
@@ -211,5 +209,45 @@ class _PatientSummaryTabState extends ConsumerState<PatientSummaryTab> {
         ? 'Source: visit ${s.visitId} — see the History tab.'
         : 'Source: test order ${s.testOrderId} — see the Tests tab.';
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(what)));
+  }
+}
+
+/// Reassuring "generating" state for the one-touch summary (UI brief §4 — this
+/// is a wait the doctor will notice). A labelled card with a progress bar beats
+/// a bare spinner and sets the expectation of what's happening.
+class _GeneratingCard extends StatelessWidget {
+  const _GeneratingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, size: 18, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text('Summarizing the record…',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(),
+            const SizedBox(height: 8),
+            Text(
+              'Reading structured visits and test results — a few seconds.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
