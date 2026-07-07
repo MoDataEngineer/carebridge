@@ -1,4 +1,4 @@
-# Project Brief: CareBridge (working name) — Patient–Clinic–Diagnostics Health Record Platform
+# Project Brief: Ayulekha — Patient–Clinic–Diagnostics Health Record Platform
 
 > Save this file as BOTH `CLAUDE.md` and `AGENTS.md` in the repo root.
 > Claude Code reads `CLAUDE.md` automatically. Codex reads `AGENTS.md`.

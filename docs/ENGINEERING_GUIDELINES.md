@@ -1,4 +1,4 @@
-# CareBridge — Engineering Guidelines (discovered conventions)
+# Ayulekha — Engineering Guidelines (discovered conventions)
 
 > Audit Phase 3 deliverable: the conventions the codebase actually follows,
 > written down so future changes stay consistent. Complements CLAUDE.md

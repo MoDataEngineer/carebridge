@@ -1,4 +1,4 @@
-# CareBridge — Flutter app
+# Ayulekha — Flutter app
 
 Single codebase for all three roles (Patient / Doctor-Clinic / Diagnostic Partner)
 on mobile **and** web. Role-based routing from the three-button entry screen

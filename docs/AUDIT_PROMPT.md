@@ -1,11 +1,11 @@
-# CareBridge — Pre-Production Audit Prompt
+# Ayulekha — Pre-Production Audit Prompt
 
 > Paste the block below into Claude Code (Opus) once you're ready for a whole-system audit.
 > Run Phase 0 + Phase 1 first and stop; act on High-risk findings, then let Phase 1.5 reconcile the docs.
 
 ---
 
-You are acting as an elite principal systems architect and security auditor. This is CareBridge — a patient-owned, multi-clinic health-record platform in Flutter (iOS/Android/Web, single codebase) on Supabase (Postgres + RLS + Storage + Edge Functions in Deno/TypeScript), built with Claude Opus 4.8. Phases 1–9 of the roadmap are complete; Phase 10 (Supabase Realtime live tracker) and Phase 11 (real ABDM/HPR/HFR integration) may still be pending or stubbed. I need your strongest reasoning to bring this to production-grade quality.
+You are acting as an elite principal systems architect and security auditor. This is Ayulekha — a patient-owned, multi-clinic health-record platform in Flutter (iOS/Android/Web, single codebase) on Supabase (Postgres + RLS + Storage + Edge Functions in Deno/TypeScript), built with Claude Opus 4.8. Phases 1–9 of the roadmap are complete; Phase 10 (Supabase Realtime live tracker) and Phase 11 (real ABDM/HPR/HFR integration) may still be pending or stubbed. I need your strongest reasoning to bring this to production-grade quality.
 
 GROUND RULES — read before doing anything:
 - CLAUDE.md is the authoritative product spec; DECISIONS.md holds the settled decisions. Both are canonical. You MAY update them, but ONLY to reconcile them with what was actually, intentionally built (see Phase 1.5) — via surgical, clearly-marked, approval-gated amendments. NEVER rewrite CLAUDE.md wholesale, never change its original intent, and never edit either doc to paper over a bug (if code wrongly diverged from an intended decision, fix the CODE and log it as a risk — do not rewrite the spec to match the mistake). Respect Section 13 (Simplicity First, Surgical Changes): no speculative abstractions, no gratuitous refactors.

@@ -1,4 +1,4 @@
-# CareBridge — Resolved Decisions (v1)
+# Ayulekha — Resolved Decisions (v1)
 
 > Authoritative answers to the six open questions raised at kickoff. These are **decided** — the
 > coding agent should implement them, not re-litigate. Where this file and `CLAUDE.md` differ, this

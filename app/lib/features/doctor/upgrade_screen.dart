@@ -31,7 +31,7 @@ class UpgradeScreen extends StatelessWidget {
                 Icon(Icons.workspace_premium,
                     size: 56, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 12),
-                Text('CareBridge Pro',
+                Text('Ayulekha Pro',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 16),
@@ -46,7 +46,7 @@ class UpgradeScreen extends StatelessWidget {
                   onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content: Text(
-                              'Payments coming soon — contact CareBridge to upgrade.'))),
+                              'Payments coming soon — contact Ayulekha to upgrade.'))),
                   child: const Text('Contact us to upgrade'),
                 ),
               ],

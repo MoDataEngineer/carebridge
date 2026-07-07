@@ -1,6 +1,6 @@
-# CareBridge — Build Setup Guide (Windows, non-technical founder)
+# Ayulekha — Build Setup Guide (Windows, non-technical founder)
 
-Goal: get from an empty machine to Claude Code actively building CareBridge, phase by phase.
+Goal: get from an empty machine to Claude Code actively building Ayulekha, phase by phase.
 You install a few tools once; Claude Code runs the actual build commands for you and pauses for
 your review after each phase. Budget ~1–1.5 hours for first-time setup.
 

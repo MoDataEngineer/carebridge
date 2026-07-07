@@ -30,7 +30,7 @@ class EntryScreen extends StatelessWidget {
                     size: wide ? 72 : 56,
                     color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 16),
-                Text('CareBridge',
+                Text('Ayulekha',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 8),

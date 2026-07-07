@@ -1,4 +1,4 @@
-# CareBridge — System Architecture (as built, 2026-07-04)
+# Ayulekha — System Architecture (as built, 2026-07-04)
 
 > Audit Phase 3 deliverable. Describes what EXISTS. CLAUDE.md remains the
 > product spec; DECISIONS.md holds settled decisions. Where implementation

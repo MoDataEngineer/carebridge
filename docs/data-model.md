@@ -1,4 +1,4 @@
-# CareBridge — Data Model Reference
+# Ayulekha — Data Model Reference
 
 Authoritative SQL lives in `supabase/migrations/`. This doc is the human-readable
 companion, reflecting Section 6 of `CLAUDE.md` **with the D1–D5 amendments** from

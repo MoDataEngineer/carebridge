@@ -92,9 +92,9 @@ const TITLES: Record<string, (p: Record<string, unknown>) => [string, string]> =
   follow_up: () => ["Follow-up due today",
     "Your doctor advised a follow-up visit for today."],
   report_ready: () => ["Test report ready",
-    "A test report is ready — open CareBridge to view it."],
+    "A test report is ready — open Ayulekha to view it."],
   medication_reminder: (p) => ["Medication reminder",
-    `Time for your ${p.slot ?? ""} dose — open CareBridge for details.`],
+    `Time for your ${p.slot ?? ""} dose — open Ayulekha for details.`],
 };
 
 Deno.serve(async (req) => {

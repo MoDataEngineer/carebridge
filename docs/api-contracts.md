@@ -1,4 +1,4 @@
-# CareBridge — API / Edge Function Contracts
+# Ayulekha — API / Edge Function Contracts
 
 Status legend: **STUB** = folder + 501 placeholder exists; wired in the noted phase.
 

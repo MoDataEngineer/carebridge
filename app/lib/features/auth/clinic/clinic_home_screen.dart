@@ -41,7 +41,7 @@ class ClinicHomeScreen extends ConsumerWidget {
               child: const Padding(
                 padding: EdgeInsets.all(10),
                 child: Text(
-                  'Registration pending verification — CareBridge will confirm '
+                  'Registration pending verification — Ayulekha will confirm '
                   'your hospital registration number shortly.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12),

@@ -21,16 +21,16 @@ Future<void> main() async {
   // (OTP needs no client config — it's Supabase-hosted, D12.)
   await SupabaseService.init();
 
-  runApp(const ProviderScope(child: CareBridgeApp()));
+  runApp(const ProviderScope(child: AyulekhaApp()));
 }
 
-class CareBridgeApp extends StatelessWidget {
-  const CareBridgeApp({super.key});
+class AyulekhaApp extends StatelessWidget {
+  const AyulekhaApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'CareBridge',
+      title: 'Ayulekha',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: appRouter,
