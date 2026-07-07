@@ -78,6 +78,8 @@ class SupabaseClinicAuthRepository implements ClinicAuthRepository {
       baseToken: (data['access_token'] ?? '') as String,
       paid: data['subscription_status'] == 'paid',
       verified: data['verified'] == true,
+      preselectedDoctorId: data['preselected_doctor_id'] as String?,
+      preselectedDoctorName: data['preselected_doctor_name'] as String?,
       doctors: ((data['doctors'] ?? []) as List)
           .map((e) => DoctorSummary.fromMap(e as Map<String, dynamic>))
           .toList(),

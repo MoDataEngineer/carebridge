@@ -21,6 +21,7 @@ abstract class RosterRepository {
     required String specialty,
     String? hprId,
     required String pin,
+    String? phone,
   });
 }
 
@@ -48,6 +49,7 @@ class SupabaseRosterRepository implements RosterRepository {
     required String specialty,
     String? hprId,
     required String pin,
+    String? phone,
   }) async {
     final res = await _client.rpc('carebridge_add_doctor', params: {
       'p_name': name,
@@ -56,6 +58,7 @@ class SupabaseRosterRepository implements RosterRepository {
       'p_specialty': specialty,
       'p_hpr': hprId,
       'p_pin': pin,
+      'p_phone': phone,
     });
     return DoctorSummary.fromMap(((res as List).first) as Map<String, dynamic>);
   }

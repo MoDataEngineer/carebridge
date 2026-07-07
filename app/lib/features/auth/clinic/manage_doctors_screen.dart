@@ -39,6 +39,7 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
     final specialty = TextEditingController();
     final specialtyFocus = FocusNode();
     final hpr = TextEditingController();
+    final phone = TextEditingController();
     final pin = TextEditingController();
 
     final ok = await showDialog<bool>(
@@ -112,6 +113,16 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
                 decoration: const InputDecoration(
                     labelText: 'HPR ID (optional — verification never blocks)'),
               ),
+              // D13: a doctor's own mobile lets them sign in directly (their
+              // number → their PIN → their workspace, no shared hospital login).
+              TextField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                    labelText: 'Doctor mobile (optional)',
+                    prefixText: '+91 ',
+                    helperText: 'Lets this doctor sign in directly with their own number'),
+              ),
               TextField(
                 controller: pin,
                 keyboardType: TextInputType.number,
@@ -139,6 +150,7 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
             specialty: specialty.text,
             hprId: hpr.text.trim().isEmpty ? null : hpr.text.trim(),
             pin: pin.text,
+            phone: phone.text.trim().isEmpty ? null : '+91${phone.text.trim()}',
           );
       // Keep the in-session roster in sync so the picker sees the new doctor.
       ref.read(clinicSessionControllerProvider.notifier).doctorAdded(added);

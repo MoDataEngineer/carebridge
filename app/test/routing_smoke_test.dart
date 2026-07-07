@@ -22,8 +22,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Patient'), findsOneWidget);
-    // Founder decision 2026-07-04: clinic entry is labelled "Hospital".
-    expect(find.text('Hospital'), findsOneWidget);
+    // Founder decision 2026-07-04: clinic entry is labelled "Hospital";
+    // 2026-07-07 relabelled "Hospital / Doctor" (per-doctor login, D13).
+    expect(find.text('Hospital / Doctor'), findsOneWidget);
     expect(find.text('Diagnostic Partner'), findsOneWidget);
     // There is no literal "Clinic" button (Section 2).
     expect(find.text('Clinic'), findsNothing);
@@ -33,7 +34,7 @@ void main() {
     await tester.pumpWidget(harness());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Hospital'));
+    await tester.tap(find.text('Hospital / Doctor'));
     await tester.pumpAndSettle();
 
     expect(find.text('Hospital sign in'), findsOneWidget);

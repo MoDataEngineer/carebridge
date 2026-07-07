@@ -13,8 +13,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// clinic does. Uses a fake repository so the decision logic is tested without a
 /// network or backend.
 class _FakeRepo implements ClinicAuthRepository {
-  _FakeRepo(this.doctorCount);
+  _FakeRepo(this.doctorCount, {this.preselectDoctor = false});
   final int doctorCount;
+
+  /// D13: simulate a doctor-phone login — the backend resolves the doctor and
+  /// returns preselected_doctor_id, so the client skips the "Who are you?" picker.
+  final bool preselectDoctor;
 
   @override
   Future<ClinicLoginResult> login({
@@ -25,6 +29,8 @@ class _FakeRepo implements ClinicAuthRepository {
       clinicId: 'clinic-1',
       clinicName: 'Test Clinic',
       baseToken: 'base',
+      preselectedDoctorId: preselectDoctor ? 'doc-1' : null,
+      preselectedDoctorName: preselectDoctor ? 'Dr 2' : null,
       doctors: List.generate(
         doctorCount,
         (i) => DoctorSummary(id: 'doc-$i', name: 'Dr ${i + 1}', specialty: 'GP'),
@@ -71,9 +77,10 @@ class _NoOtp implements PhoneOtp {
   Future<bool> sendCode(String phone) async => false;
 }
 
-Widget _harness(int doctorCount) => ProviderScope(
+Widget _harness(int doctorCount, {bool preselectDoctor = false}) => ProviderScope(
       overrides: [
-        clinicAuthRepositoryProvider.overrideWithValue(_FakeRepo(doctorCount)),
+        clinicAuthRepositoryProvider.overrideWithValue(
+            _FakeRepo(doctorCount, preselectDoctor: preselectDoctor)),
         phoneOtpProvider.overrideWithValue(_NoOtp()),
       ],
       child: MaterialApp.router(
@@ -83,7 +90,7 @@ Widget _harness(int doctorCount) => ProviderScope(
     );
 
 Future<void> _loginAsClinic(WidgetTester tester) async {
-  await tester.tap(find.text('Hospital'));
+  await tester.tap(find.text('Hospital / Doctor'));
   await tester.pumpAndSettle();
   expect(find.text('Hospital sign in'), findsOneWidget);
   // 2026-07-06: hospital login is by mobile alone — no registration number.
@@ -118,5 +125,21 @@ void main() {
     expect(find.text('Who are you?'), findsOneWidget);
     expect(find.text('Enter PIN'), findsNothing);
     expect(find.text('Clinic Admin / View All'), findsOneWidget);
+  });
+
+  testWidgets(
+      '(D13) doctor-phone login skips the picker even in a multi-doctor clinic',
+      (tester) async {
+    // A multi-doctor clinic (3 doctors) would normally show the picker — but a
+    // login resolved by a doctor's own mobile is pre-scoped to that doctor.
+    await tester.pumpWidget(_harness(3, preselectDoctor: true));
+    await tester.pumpAndSettle();
+
+    await _loginAsClinic(tester);
+
+    expect(find.text('Who are you?'), findsNothing);
+    expect(find.text('Enter PIN'), findsOneWidget);
+    // Pre-scoped to the resolved doctor (not the admin, not another doctor).
+    expect(find.textContaining('Dr 2'), findsOneWidget);
   });
 }

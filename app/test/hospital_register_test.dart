@@ -73,6 +73,7 @@ class _FakeRosterRepo implements RosterRepository {
     required String specialty,
     String? hprId,
     required String pin,
+    String? phone,
   }) async {
     final d = DoctorSummary(id: 'doc-${roster.length + 1}', name: name, specialty: specialty);
     roster.add(d);
@@ -95,9 +96,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('Hospital'), findsOneWidget);
-    expect(find.text('Doctor'), findsNothing); // renamed per founder decision
-    await tester.tap(find.text('Hospital'));
+    expect(find.text('Hospital / Doctor'), findsOneWidget);
+    await tester.tap(find.text('Hospital / Doctor'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('New hospital? Register here'));

@@ -43,7 +43,8 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
     );
     if (!mounted) return;
     // Guarantee (a): solo clinic is auto-scoped — straight to PIN, no picker.
-    if (result.isSolo) {
+    // D13: a doctor-phone login is likewise pre-scoped — straight to their PIN.
+    if (result.skipsPicker) {
       context.push(Routes.pinEntry);
     } else {
       context.push(Routes.whoAreYou);
@@ -104,6 +105,7 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: 'Registered mobile number',
+              helperText: 'Hospital admin number, or a doctor\'s own number',
               prefixText: '+91 ',
               border: OutlineInputBorder(),
             ),
@@ -152,9 +154,10 @@ class _ClinicLoginScreenState extends ConsumerState<ClinicLoginScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'One login per hospital; doctors are added under it (Section 2.2) — '
-            'solo doctors register their practice the same way. An SMS code is '
-            'sent to the registered mobile once OTP (MSG91) is set up.',
+            'Hospitals register once and add doctors under them (Section 2.2); '
+            'a doctor can also sign in with their own registered mobile and go '
+            'straight to their workspace. An SMS code is sent to the number '
+            'entered once OTP (MSG91) is set up.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

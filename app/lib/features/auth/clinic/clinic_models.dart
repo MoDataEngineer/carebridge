@@ -24,6 +24,8 @@ class ClinicLoginResult {
     required this.baseToken,
     this.paid = false,
     this.verified = true,
+    this.preselectedDoctorId,
+    this.preselectedDoctorName,
   });
 
   final String clinicId;
@@ -38,9 +40,17 @@ class ClinicLoginResult {
   /// the flag after checking the registration number. Badge-only in the UI.
   final bool verified;
 
-  /// Section 2.2 / D1: exactly one doctor => solo practitioner. The picker is
-  /// skipped and the session is scoped as that doctor (who is also admin).
+  /// D13: set only when the login was resolved by a DOCTOR's own mobile — the
+  /// "Who are you?" picker is skipped and the session pre-scopes to this doctor
+  /// (they still enter their PIN). Null for a hospital/admin login.
+  final String? preselectedDoctorId;
+  final String? preselectedDoctorName;
+
+  /// True when the entry point already fixes the doctor identity — either a
+  /// solo clinic (one doctor) or a doctor-phone login. Both skip the picker.
   bool get isSolo => doctors.length == 1;
+  bool get isDoctorLogin => preselectedDoctorId != null;
+  bool get skipsPicker => isSolo || isDoctorLogin;
 }
 
 /// The identity a session is being scoped to, chosen before PIN entry.

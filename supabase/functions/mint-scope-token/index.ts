@@ -293,28 +293,59 @@ Deno.serve(async (req) => {
   // ---------------- action: login (also completes register) ----------------
   // 2026-07-06: hospital login is by MOBILE alone (unique per clinic, 0022);
   // the registration/license number is collected once at registration.
+  // 2026-07-07 (D13): the entered mobile also resolves a DOCTOR — if the number
+  // is a doctor's own phone, we authenticate as that doctor's clinic user and
+  // pre-select their identity so they skip "Who are you?" and go straight to
+  // their PIN. Clinic (admin) match is tried FIRST, so a solo doctor sharing the
+  // hospital number is unaffected.
   if (payload.action === "login" || registeredReg !== null) {
-    let clinicQuery = admin
-      .from("clinics")
-      .select("id, name, registration_number, auth_user_id, subscription_status, phone, verified");
+    const clinicCols =
+      "id, name, registration_number, auth_user_id, subscription_status, phone, verified";
+    let clinic: Record<string, unknown> | null = null;
+    // A doctor-phone login pre-selects this identity (skips the picker).
+    let preselectedDoctor: { id: string; name: string } | null = null;
+
     if (registeredReg !== null) {
-      clinicQuery = clinicQuery.eq("registration_number", registeredReg);
+      const { data, error: cErr } = await admin
+        .from("clinics").select(clinicCols)
+        .eq("registration_number", registeredReg).maybeSingle();
+      if (cErr) return json({ error: "lookup_failed" }, 500);
+      clinic = data;
     } else {
       const phone10 = normPhone(payload.phone);
       if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
-      clinicQuery = clinicQuery.like("phone", `%${phone10}`);
+      // 1) hospital (admin) login — one phone = one clinic (0022).
+      const { data: byClinic, error: cErr } = await admin
+        .from("clinics").select(clinicCols)
+        .like("phone", `%${phone10}`).maybeSingle();
+      if (cErr) return json({ error: "lookup_failed" }, 500);
+      clinic = byClinic;
+      // 2) doctor self-login — the number is a doctor's own mobile (0023).
+      if (!clinic) {
+        const { data: doc } = await admin
+          .from("doctors").select("id, name, clinic_id")
+          .like("phone", `%${phone10}`).eq("is_active", true)
+          .limit(1).maybeSingle();
+        if (doc) {
+          preselectedDoctor = { id: doc.id as string, name: (doc.name ?? "") as string };
+          const { data: dClinic, error: dcErr } = await admin
+            .from("clinics").select(clinicCols)
+            .eq("id", doc.clinic_id).maybeSingle();
+          if (dcErr) return json({ error: "lookup_failed" }, 500);
+          clinic = dClinic;
+        }
+      }
     }
-    const { data: clinic, error: cErr } = await clinicQuery.maybeSingle();
-    if (cErr) return json({ error: "lookup_failed" }, 500);
     if (!clinic) return json({ error: "clinic_not_found",
-      detail: "no hospital signs in with this mobile number" }, 404);
+      detail: "no hospital or doctor signs in with this mobile number" }, 404);
 
-    // Phase 11 D12 (closes audit H1 when enforced): a valid single-use OTP
-    // for the registered phone proves control of it. Until REQUIRE_OTP is
-    // flipped, phone-only login stands (demo posture — same as patients).
+    // Phase 11 D12 (closes audit H1 when enforced): a valid single-use OTP for
+    // the ENTERED phone proves control of it (the doctor's own number for a
+    // doctor login, the clinic's for a hospital login — both were matched by
+    // it). Until REQUIRE_OTP is flipped, phone-only login stands (demo posture).
     // Skipped only when registration just happened in this same request.
-    if (registeredReg === null && clinic.phone) {
-      const codeOk = await otpValid(admin, normPhone(clinic.phone), payload.otp_code);
+    if (registeredReg === null) {
+      const codeOk = await otpValid(admin, normPhone(payload.phone), payload.otp_code);
       if (!codeOk && (REQUIRE_OTP || payload.otp_code)) {
         return json({ error: "otp_rejected",
           detail: "the SMS code is wrong or expired" }, 401);
@@ -391,6 +422,10 @@ Deno.serve(async (req) => {
       verified: clinic.verified === true, // H2: badge in the app
       doctors: doctors ?? [],
       is_solo: (doctors ?? []).length === 1,
+      // D13: set only for a doctor-phone login — the client skips the picker and
+      // goes straight to this doctor's PIN entry.
+      preselected_doctor_id: preselectedDoctor?.id ?? null,
+      preselected_doctor_name: preselectedDoctor?.name ?? null,
       access_token: session.session.access_token,
       refresh_token: session.session.refresh_token,
       auth_user_id: authUserId,

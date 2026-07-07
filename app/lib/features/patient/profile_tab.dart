@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../shared/constants/medical_conditions.dart';
 import 'patient_models.dart';
 import 'patient_repository.dart';
 
@@ -137,11 +138,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         _ChipEditor(
           label: 'Allergies',
           values: _allergies,
+          suggestions: kCommonAllergies,
           onChanged: (v) => setState(() => _allergies = v),
         ),
         _ChipEditor(
           label: 'Chronic conditions',
           values: _chronic,
+          suggestions: kCommonChronicConditions,
           onChanged: (v) => setState(() => _chronic = v),
         ),
         _ChipEditor(
@@ -162,11 +165,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   }
 }
 
-/// Add/remove string chips for a structured list field.
+/// Add/remove string chips for a structured list field. When [suggestions] is
+/// non-empty the input becomes a searchable picker (type to filter, tap to add)
+/// mirroring the doctor-registration specialty field — free text stays allowed
+/// so an unlisted entry never blocks saving.
 class _ChipEditor extends StatefulWidget {
-  const _ChipEditor({required this.label, required this.values, required this.onChanged});
+  const _ChipEditor({
+    required this.label,
+    required this.values,
+    required this.onChanged,
+    this.suggestions = const [],
+  });
   final String label;
   final List<String> values;
+  final List<String> suggestions;
   final ValueChanged<List<String>> onChanged;
 
   @override
@@ -175,10 +187,16 @@ class _ChipEditor extends StatefulWidget {
 
 class _ChipEditorState extends State<_ChipEditor> {
   final _ctrl = TextEditingController();
+  final _focus = FocusNode();
 
-  void _add() {
-    final v = _ctrl.text.trim();
+  void _add([String? value]) {
+    final v = (value ?? _ctrl.text).trim();
     if (v.isEmpty) return;
+    // Skip case-insensitive duplicates so tapping a suggestion twice is a no-op.
+    if (widget.values.any((e) => e.toLowerCase() == v.toLowerCase())) {
+      _ctrl.clear();
+      return;
+    }
     widget.onChanged([...widget.values, v]);
     _ctrl.clear();
   }
@@ -186,6 +204,7 @@ class _ChipEditorState extends State<_ChipEditor> {
   @override
   void dispose() {
     _ctrl.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -213,20 +232,67 @@ class _ChipEditorState extends State<_ChipEditor> {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _ctrl,
-                  decoration: InputDecoration(
-                    hintText: 'Add ${widget.label.toLowerCase()}…',
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _add(),
-                ),
+                child: widget.suggestions.isEmpty ? _plainField() : _pickerField(),
               ),
-              IconButton(icon: const Icon(Icons.add), onPressed: _add),
+              IconButton(icon: const Icon(Icons.add), onPressed: () => _add()),
             ],
           ),
         ],
       ),
     );
   }
+
+  Widget _plainField() => TextField(
+        controller: _ctrl,
+        decoration: InputDecoration(
+          hintText: 'Add ${widget.label.toLowerCase()}…',
+          isDense: true,
+        ),
+        onSubmitted: (_) => _add(),
+      );
+
+  /// Searchable picker over [suggestions] — already-selected values are hidden
+  /// from the list, and tapping an option adds it immediately.
+  Widget _pickerField() => RawAutocomplete<String>(
+        textEditingController: _ctrl,
+        focusNode: _focus,
+        optionsBuilder: (v) {
+          final q = v.text.trim().toLowerCase();
+          final chosen = widget.values.map((e) => e.toLowerCase()).toSet();
+          return widget.suggestions.where((s) =>
+              !chosen.contains(s.toLowerCase()) &&
+              (q.isEmpty || s.toLowerCase().contains(q)));
+        },
+        onSelected: _add,
+        fieldViewBuilder: (ctx, ctrl, focus, _) => TextField(
+          controller: ctrl,
+          focusNode: focus,
+          decoration: InputDecoration(
+            hintText: 'Search or add ${widget.label.toLowerCase()}…',
+            isDense: true,
+          ),
+          onSubmitted: (_) => _add(),
+        ),
+        optionsViewBuilder: (ctx, onSelected, options) => Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220, maxWidth: 320),
+              child: ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                children: [
+                  for (final o in options)
+                    ListTile(
+                      dense: true,
+                      title: Text(o),
+                      onTap: () => onSelected(o),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }

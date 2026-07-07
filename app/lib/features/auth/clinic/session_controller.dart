@@ -42,7 +42,15 @@ class ClinicSessionController extends StateNotifier<ClinicSessionState> {
     );
 
     ScopeTarget? pending;
-    if (result.isSolo) {
+    if (result.isDoctorLogin) {
+      // D13: signed in with a doctor's OWN mobile — pre-scope to that doctor;
+      // the picker is skipped and they only enter their PIN.
+      pending = ScopeTarget(
+        role: ActiveRole.doctor,
+        doctorId: result.preselectedDoctorId,
+        label: result.preselectedDoctorName,
+      );
+    } else if (result.isSolo) {
       // Solo practitioner = sole doctor + admin. Auto-scope to the one doctor;
       // no picker is ever shown.
       final only = result.doctors.first;

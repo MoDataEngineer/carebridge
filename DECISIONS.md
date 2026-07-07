@@ -155,6 +155,29 @@ for Indian volumes. New shape, same trust guarantees:
 - Bonus over Firebase: no authorized-domain restriction — OTP works from LAN/IP test hosts.
 - Founder TODO: MSG91 account + KYC + DLT entity/template registration (one-time, ~days).
 
+## D13 — Per-doctor mobile login (ADOPTED 2026-07-07, founder enhancement)
+
+Amends Section 2.2's "one login credential per clinic". Problem: with a single
+hospital login (registered mobile → OTP → "Who are you?" → PIN), a multi-doctor
+hospital's admin had to hand the hospital login to every doctor. Fix: a doctor
+gets their OWN mobile on the roster (`doctors.phone`, migration 0023, unique on
+normalized last-10). On the hospital sign-in screen the entered number resolves
+BOTH ways:
+
+- matches a clinic phone → hospital/admin login (unchanged, tried FIRST so a solo
+  doctor sharing the hospital number is unaffected);
+- else matches a doctor phone → authenticate as that doctor's clinic GoTrue user
+  and return `preselected_doctor_id/name`; the client skips the picker and goes
+  straight to that doctor's PIN → their own doctor-scoped workspace.
+
+Nothing about the scope/RLS/PIN model changes (D1/D2/D9): the doctor still signs
+in as the clinic user and is scoped by their PIN. This only adds a second
+resolution path in `mint-scope-token`'s `login` action. The entry button is
+relabelled "Hospital / Doctor". Doctor phone is OPTIONAL at roster-add; without
+it that doctor uses the shared hospital login + picker as before. When OTP is
+live (D12), the SMS goes to whichever number was entered (the doctor's own for a
+doctor login).
+
 ---
 
 ### Net effect on the data model
@@ -163,3 +186,4 @@ for Indian volumes. New shape, same trust guarantees:
 - `doctors` → add `pin_hash`; `clinics` → add an admin `pin_hash` (D1).
 - Scope claims live in the JWT, not a table (D2).
 - `prescriptions` → structured `schedule` / `relation_to_food` / `duration_days` (D5).
+- `doctors` → add `phone` (nullable, unique on normalized last-10) for per-doctor login (D13).

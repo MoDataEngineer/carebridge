@@ -7,7 +7,10 @@ import '../../shared/widgets/role_button.dart';
 
 /// THE entry screen (Section 2): three buttons, nothing else.
 /// Founder decision 2026-07-04: the clinic entry is labelled "Hospital"
-/// (was "Doctor" in the original spec). Hospitals self-register and add
+/// (was "Doctor" in the original spec); 2026-07-07 relabelled "Hospital /
+/// Doctor" since a doctor can now sign in directly with their own registered
+/// mobile (per-doctor login) and land straight in their own workspace.
+/// Hospitals self-register and add
 /// doctor profiles under themselves — solo doctors included.
 /// Diagnostic Partner stays flat.
 class EntryScreen extends StatelessWidget {
@@ -45,7 +48,7 @@ class EntryScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 RoleButton(
-                  label: 'Hospital',
+                  label: 'Hospital / Doctor',
                   icon: Icons.local_hospital,
                   onTap: () => context.push(Routes.clinicLogin),
                 ),
