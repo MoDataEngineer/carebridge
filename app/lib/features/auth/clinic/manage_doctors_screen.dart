@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/constants/medical_specialties.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
+import 'availability_screen.dart';
 import 'clinic_models.dart';
 import 'clinic_sign_out_button.dart';
 import 'roster_repository.dart';
@@ -156,8 +157,8 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
       // Keep the in-session roster in sync so the picker sees the new doctor.
       ref.read(clinicSessionControllerProvider.notifier).doctorAdded(added);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('${added.name} added')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${added.name} added — tap "Availability" to set consultation times')));
       _reload();
     } catch (e) {
       if (mounted) {
@@ -205,6 +206,14 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
                   leading: const Icon(Icons.badge),
                   title: Text(d.name),
                   subtitle: Text(d.specialty),
+                  trailing: TextButton.icon(
+                    icon: const Icon(Icons.schedule, size: 18),
+                    label: const Text('Availability'),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) =>
+                          AvailabilityScreen(doctorId: d.id, doctorName: d.name),
+                    )),
+                  ),
                 ),
               ),
         ],
