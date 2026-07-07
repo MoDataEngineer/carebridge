@@ -6,6 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
+import '../../shared/widgets/empty_state.dart';
+import '../../shared/widgets/skeleton_loader.dart';
+import '../../shared/widgets/status_pill.dart';
+import '../../shared/widgets/theme_toggle_button.dart';
 import 'diagnostics_models.dart';
 import 'diagnostics_repository.dart';
 
@@ -45,6 +49,7 @@ class _DiagnosticPortalScreenState extends ConsumerState<DiagnosticPortalScreen>
       appBar: AppBar(
         title: const Text('Diagnostic portal'),
         actions: [
+          const ThemeToggleButton(),
           IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
@@ -61,15 +66,19 @@ class _DiagnosticPortalScreenState extends ConsumerState<DiagnosticPortalScreen>
         future: _queue,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const SkeletonLoader();
           }
           if (snap.hasError) {
             return Center(child: Text('Could not load queue: ${snap.error}'));
           }
           final items = snap.data ?? const [];
           if (items.isEmpty) {
-            return const Center(
-              child: Text('No orders yet. Claim an order code to begin.'),
+            return const EmptyState(
+              icon: Icons.qr_code_scanner,
+              title: 'No orders in your queue',
+              message:
+                  'Claim an order with the code the patient shows you, then '
+                  'update its status and upload the result here.',
             );
           }
           return ListView.builder(
@@ -272,8 +281,15 @@ class _QueueCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${item.testName} · ${item.testType}',
-                style: Theme.of(context).textTheme.titleSmall),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('${item.testName} · ${item.testType}',
+                      style: Theme.of(context).textTheme.titleSmall),
+                ),
+                StatusPill(done ? 'report_ready' : item.status),
+              ],
+            ),
             Text(item.patientName, style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: 8),
             if (done)

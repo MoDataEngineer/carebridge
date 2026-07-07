@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/skeleton_loader.dart';
+import '../../shared/widgets/status_pill.dart';
 import 'diagnostics_models.dart';
 import 'diagnostics_repository.dart';
 
@@ -166,48 +166,6 @@ class _TestOrdersViewState extends ConsumerState<TestOrdersView> {
   }
 }
 
-/// A status pill for a test_status value. Pairs colour with an icon AND a text
-/// label so status is never conveyed by colour alone (UI brief §5).
-class _StatusChip extends StatelessWidget {
-  const _StatusChip(this.status);
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final s = AppStatusColors.of(context);
-    final (String label, IconData icon, Color color) = switch (status) {
-      'ordered' => ('Ordered', Icons.receipt_long, scheme.onSurfaceVariant),
-      'sample_collected' => ('Sample collected', Icons.colorize, s.info),
-      'in_progress' => ('In progress', Icons.hourglass_bottom, s.warning),
-      'report_ready' => ('Report ready', Icons.check_circle, s.success),
-      'cancelled' => ('Cancelled', Icons.cancel, scheme.error),
-      _ => (status, Icons.help_outline, scheme.onSurfaceVariant),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(color: color, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _OrderCard extends StatelessWidget {
   const _OrderCard({required this.order});
   final TestOrderView order;
@@ -226,7 +184,7 @@ class _OrderCard extends StatelessWidget {
                   child: Text('${order.testName} · ${order.testType}',
                       style: Theme.of(context).textTheme.titleSmall),
                 ),
-                _StatusChip(order.status),
+                StatusPill(order.status),
               ],
             ),
             if (order.orderCode != null && order.status != 'report_ready') ...[
