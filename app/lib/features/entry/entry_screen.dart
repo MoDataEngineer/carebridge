@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/routing/app_router.dart';
 import '../../core/theme/breakpoints.dart';
 import '../../shared/widgets/role_button.dart';
+import '../../shared/widgets/theme_toggle_button.dart';
 
 /// THE entry screen (Section 2): three buttons, nothing else.
 /// Founder decision 2026-07-04: the clinic entry is labelled "Hospital"
@@ -20,7 +21,18 @@ class EntryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final wide = !Breakpoints.isMobile(context);
     return Scaffold(
-      body: Center(
+      body: Stack(
+        children: [
+          const Align(
+            alignment: Alignment.topRight,
+            child: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.all(8),
+                child: ThemeToggleButton(),
+              ),
+            ),
+          ),
+          Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Padding(
@@ -62,6 +74,8 @@ class EntryScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
+        ],
       ),
     );
   }

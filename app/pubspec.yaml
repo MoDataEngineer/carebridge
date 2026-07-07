@@ -24,6 +24,8 @@ dependencies:
   # pluggable SMS sender (MSG91 first) — no Firebase client needed.
   # Opens the official ABHA creation page (D3: ABHA optional in pilot).
   url_launcher: ^6.3.0
+  # Persists the dark-mode override across app restarts (UI brief §2).
+  shared_preferences: ^2.3.0
 
 dev_dependencies:
   flutter_test:

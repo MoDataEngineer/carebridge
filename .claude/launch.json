@@ -14,6 +14,13 @@
       "runtimeExecutable": "flutter",
       "runtimeArgs": ["run", "-d", "chrome", "--web-port", "5000"],
       "port": 5000
+    },
+    {
+      "name": "ayulekha-app-web",
+      "cwd": "app/build/web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5000"],
+      "port": 5000
     }
   ]
 }

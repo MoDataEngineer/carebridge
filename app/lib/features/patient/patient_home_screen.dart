@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
+import '../../shared/widgets/theme_toggle_button.dart';
 import '../consent/privacy_tab.dart';
 import '../diagnostics/test_orders_view.dart';
 import '../notifications/notifications_screen.dart';
@@ -30,6 +31,7 @@ class PatientHomeScreen extends ConsumerWidget {
                 builder: (_) => const NotificationsScreen(),
               )),
             ),
+            const ThemeToggleButton(),
             IconButton(
               tooltip: 'Sign out',
               icon: const Icon(Icons.logout),
