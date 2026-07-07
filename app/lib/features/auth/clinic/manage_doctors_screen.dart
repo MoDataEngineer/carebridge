@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/constants/medical_specialties.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 import 'clinic_models.dart';
+import 'clinic_sign_out_button.dart';
 import 'roster_repository.dart';
 import 'session_controller.dart';
 
@@ -170,6 +171,8 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
   Widget build(BuildContext context) {
     return ResponsiveScaffold(
       title: 'Manage doctors',
+      showBack: false,
+      actions: const [ClinicSignOutButton()],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

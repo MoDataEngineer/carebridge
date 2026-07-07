@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/enums.dart';
+import '../../shared/widgets/theme_toggle_button.dart';
+import '../auth/clinic/clinic_sign_out_button.dart';
 import 'doctor_models.dart';
 import 'queue_repository.dart';
 
@@ -100,6 +102,8 @@ class _LiveQueueScreenState extends ConsumerState<LiveQueueScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isAdmin ? 'Clinic queue — all doctors' : 'Live queue'),
+        automaticallyImplyLeading: false,
+        actions: const [ThemeToggleButton(), ClinicSignOutButton()],
       ),
       // "Call next" is the doctor's action (AC-9-adjacent: who enters the
       // room is the doctor's call, not the front desk's).

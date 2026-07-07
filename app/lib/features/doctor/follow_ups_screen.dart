@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/theme_toggle_button.dart';
+import '../auth/clinic/clinic_sign_out_button.dart';
 import 'paid_tools_repository.dart';
 
 /// Follow-up tracker (Section 5.2, paid, doctor-scoped): own patients with an
@@ -61,7 +63,11 @@ class _FollowUpsScreenState extends ConsumerState<FollowUpsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Follow-ups')),
+      appBar: AppBar(
+        title: const Text('Follow-ups'),
+        automaticallyImplyLeading: false,
+        actions: const [ThemeToggleButton(), ClinicSignOutButton()],
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _error != null

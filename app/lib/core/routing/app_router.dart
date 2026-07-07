@@ -1,7 +1,7 @@
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/clinic/clinic_home_screen.dart';
 import '../../features/auth/clinic/clinic_login_screen.dart';
+import '../../features/auth/clinic/clinic_shell.dart';
 import '../../features/auth/clinic/hospital_register_screen.dart';
 import '../../features/auth/clinic/pin_entry_screen.dart';
 import '../../features/auth/clinic/who_are_you_screen.dart';
@@ -64,7 +64,7 @@ GoRouter createAppRouter() => GoRouter(
     ),
     GoRoute(
       path: Routes.clinicHome,
-      builder: (_, __) => const ClinicHomeScreen(),
+      builder: (_, __) => const ClinicShell(),
     ),
     GoRoute(
       path: Routes.diagnosticLogin,

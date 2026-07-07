@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/enums.dart';
+import '../../shared/widgets/theme_toggle_button.dart';
+import '../auth/clinic/clinic_sign_out_button.dart';
 import '../diagnostics/test_orders_view.dart';
 import '../summary/summary_tab.dart';
 import 'access_flow_dialogs.dart';
 import 'add_visit_form.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
-import 'follow_ups_screen.dart';
 import 'history_tab.dart';
-import 'live_queue_screen.dart';
 import 'upgrade_screen.dart';
 
 /// Doctor-core workspace (Section 5.2): scoped patient search, a tabbed patient
@@ -56,29 +56,9 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Patients'),
+        // Embedded in ClinicShell — no route to pop back to.
+        automaticallyImplyLeading: false,
         actions: [
-          // Live appointment/token tracker (Phase 10, paid — Section 9).
-          // Doctor scope: own queue; admin scope: clinic-wide (Section 5.2).
-          IconButton(
-            tooltip: 'Live queue',
-            icon: const Icon(Icons.confirmation_number_outlined),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => scope.paid
-                  ? LiveQueueScreen(scope: scope)
-                  : const UpgradeScreen(),
-            )),
-          ),
-          // Follow-up tracker (paid, doctor-scoped). Free tier sees the
-          // Upgrade stub instead (Section 9).
-          if (scope.canWrite)
-            IconButton(
-              tooltip: 'Follow-ups',
-              icon: const Icon(Icons.event_repeat),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) =>
-                    scope.paid ? const FollowUpsScreen() : const UpgradeScreen(),
-              )),
-            ),
           // Flow A/B initiation needs a specific doctor identity (AC-9); hide for admin.
           if (scope.canWrite) ...[
             IconButton(
@@ -92,6 +72,8 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
               onPressed: () => showRequestAccessDialog(context, ref, scope),
             ),
           ],
+          const ThemeToggleButton(),
+          const ClinicSignOutButton(),
         ],
       ),
       body: Padding(
