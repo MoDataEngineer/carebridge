@@ -151,7 +151,52 @@ class NowServing {
   }
 }
 
-/// Minimal bookable slot target for Phase 3 (real availability is Phase 10).
+/// One of a doctor's consultation sessions on a chosen date, with how full it
+/// is (migration 0026). The patient books into one of these.
+class AvailableSession {
+  const AvailableSession({
+    required this.sessionId,
+    this.label,
+    required this.startTime,
+    required this.endTime,
+    required this.capacity,
+    required this.booked,
+  });
+
+  final String sessionId;
+  final String? label;
+  final String startTime; // 'HH:mm:ss'
+  final String endTime;
+  final int capacity;
+  final int booked;
+
+  int get remaining => capacity - booked;
+  bool get full => remaining <= 0;
+
+  /// 'HH:mm' window, e.g. "09:00–12:00".
+  String get window => '${_hm(startTime)}–${_hm(endTime)}';
+  static String _hm(String t) => t.length >= 5 ? t.substring(0, 5) : t;
+
+  factory AvailableSession.fromMap(Map<String, dynamic> m) => AvailableSession(
+        sessionId: m['session_id'] as String,
+        label: m['label'] as String?,
+        startTime: (m['start_time'] ?? '').toString(),
+        endTime: (m['end_time'] ?? '').toString(),
+        capacity: (m['capacity'] ?? 0) as int,
+        booked: (m['booked'] ?? 0) as int,
+      );
+}
+
+/// Outcome of a booking request: within capacity confirms, overflow is pending.
+class BookingResult {
+  const BookingResult({required this.status, required this.booked, required this.capacity});
+  final String status; // 'scheduled' (confirmed) | 'requested' (pending doctor)
+  final int booked;
+  final int capacity;
+  bool get confirmed => status == 'scheduled';
+}
+
+/// Minimal bookable slot target — a doctor a patient can book with.
 class BookableDoctor {
   const BookableDoctor({
     required this.doctorId,

@@ -16,10 +16,14 @@ abstract class PatientRepository {
 
   Future<List<AppointmentRecord>> appointments();
   Future<List<BookableDoctor>> bookableDoctors();
-  Future<AppointmentRecord> bookAppointment({
-    required BookableDoctor doctor,
-    required DateTime when,
-  });
+
+  /// The doctor's consultation sessions for [date] (that weekday), each with how
+  /// full it is. Empty when the doctor isn't consulting that day.
+  Future<List<AvailableSession>> availableSessions(String doctorId, DateTime date);
+
+  /// Request a booking into [sessionId] on [date]. Within capacity confirms;
+  /// over capacity is accepted as a pending request for the doctor to approve.
+  Future<BookingResult> requestAppointment(String sessionId, DateTime date);
 
   /// Fires whenever one of the patient's own appointment rows changes (Supabase
   /// Realtime, RLS-scoped to self). A SIGNAL — consumers refetch on each event.
@@ -150,30 +154,33 @@ class SupabasePatientRepository implements PatientRepository {
   }
 
   @override
-  Future<AppointmentRecord> bookAppointment({
-    required BookableDoctor doctor,
-    required DateTime when,
-  }) async {
-    final me = await _client.from('patients').select('id').single();
-    final row = await _client
-        .from('appointments')
-        .insert({
-          'patient_id': me['id'],
-          'doctor_id': doctor.doctorId,
-          'clinic_id': doctor.clinicId,
-          'scheduled_time': when.toIso8601String(),
-          'status': 'scheduled',
-        })
-        .select()
-        .single();
-    return AppointmentRecord(
-      id: row['id'] as String,
-      scheduledTime: DateTime.parse(row['scheduled_time'].toString()),
-      status: (row['status'] ?? 'scheduled') as String,
-      clinicName: doctor.clinicName,
-      doctorName: doctor.doctorName,
+  Future<List<AvailableSession>> availableSessions(String doctorId, DateTime date) async {
+    final res = await _client.rpc('carebridge_available_sessions', params: {
+      'p_doctor': doctorId,
+      'p_date': _ymd(date),
+    });
+    return [
+      for (final m in (res ?? []) as List)
+        AvailableSession.fromMap(m as Map<String, dynamic>)
+    ];
+  }
+
+  @override
+  Future<BookingResult> requestAppointment(String sessionId, DateTime date) async {
+    final res = await _client.rpc('carebridge_request_appointment', params: {
+      'p_session': sessionId,
+      'p_date': _ymd(date),
+    });
+    final m = ((res ?? []) as List).first as Map<String, dynamic>;
+    return BookingResult(
+      status: (m['status'] ?? 'requested') as String,
+      booked: (m['booked'] ?? 0) as int,
+      capacity: (m['capacity'] ?? 0) as int,
     );
   }
+
+  static String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
 final patientRepositoryProvider = Provider<PatientRepository>((ref) {

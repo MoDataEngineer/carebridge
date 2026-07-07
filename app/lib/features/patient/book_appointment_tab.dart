@@ -36,6 +36,11 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
   DateTime _when = DateTime.now().add(const Duration(days: 1));
   bool _booking = false;
 
+  // Sessions for the chosen doctor + date (migration 0026).
+  List<AvailableSession>? _sessions;
+  String? _selectedSessionId;
+  bool _loadingSessions = false;
+
   @override
   void initState() {
     super.initState();
@@ -94,21 +99,52 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
     } catch (_) {/* best-effort */}
   }
 
-  Future<void> _book() async {
+  Future<void> _loadSessions() async {
     final doc = _selected;
     if (doc == null) {
+      setState(() {
+        _sessions = null;
+        _selectedSessionId = null;
+      });
+      return;
+    }
+    setState(() {
+      _loadingSessions = true;
+      _selectedSessionId = null;
+    });
+    try {
+      final s = await ref
+          .read(patientRepositoryProvider)
+          .availableSessions(doc.doctorId, _when);
+      if (mounted) setState(() => _sessions = s);
+    } catch (_) {
+      if (mounted) setState(() => _sessions = const []);
+    } finally {
+      if (mounted) setState(() => _loadingSessions = false);
+    }
+  }
+
+  Future<void> _book() async {
+    final sid = _selectedSessionId;
+    if (sid == null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Pick a doctor first')));
+          .showSnackBar(const SnackBar(content: Text('Pick a session first')));
       return;
     }
     setState(() => _booking = true);
     try {
-      await ref.read(patientRepositoryProvider).bookAppointment(doctor: doc, when: _when);
+      final result =
+          await ref.read(patientRepositoryProvider).requestAppointment(sid, _when);
       if (!mounted) return;
       await _loadAppts();
+      await _loadSessions();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Appointment requested')));
+        setState(() => _selectedSessionId = null);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(result.confirmed
+              ? 'Appointment confirmed.'
+              : 'This session is fully booked — your request was sent; the doctor may still approve it.'),
+        ));
       }
     } catch (e) {
       if (mounted) {
@@ -118,6 +154,53 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
     } finally {
       if (mounted) setState(() => _booking = false);
     }
+  }
+
+  Widget _sessionPicker() {
+    if (_loadingSessions) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: LinearProgressIndicator(),
+      );
+    }
+    final sessions = _sessions;
+    if (sessions == null) return const SizedBox.shrink();
+    if (sessions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          'No consultation sessions on this day — try another date.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      );
+    }
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Text('Choose a session', style: Theme.of(context).textTheme.labelLarge),
+        for (final s in sessions)
+          Card(
+            color: _selectedSessionId == s.sessionId ? scheme.primaryContainer : null,
+            child: ListTile(
+              leading: Icon(s.full ? Icons.event_busy : Icons.event_available,
+                  color: s.full ? scheme.error : scheme.primary),
+              title: Text('${s.label ?? 'Session'} · ${s.window}'),
+              subtitle: Text(
+                s.full
+                    ? 'Fully booked — the doctor may still approve your request'
+                    : '${s.remaining} of ${s.capacity} slots left',
+                style: TextStyle(color: s.full ? scheme.error : null),
+              ),
+              trailing: _selectedSessionId == s.sessionId
+                  ? const Icon(Icons.check_circle)
+                  : null,
+              onTap: () => setState(() => _selectedSessionId = s.sessionId),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -274,7 +357,10 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
                   ],
                   onChanged: _selectedClinicId == null
                       ? null
-                      : (v) => setState(() => _selected = v),
+                      : (v) {
+                          setState(() => _selected = v);
+                          _loadSessions();
+                        },
                 ),
                 if (_selected != null) ...[
                   const SizedBox(height: 8),
@@ -302,8 +388,8 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
         const SizedBox(height: 12),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.schedule),
-          title: Text('When: ${_when.toString().substring(0, 16)}'),
+          leading: const Icon(Icons.event),
+          title: Text('Date: ${_when.toString().substring(0, 10)}'),
           trailing: TextButton(
             onPressed: () async {
               final date = await showDatePicker(
@@ -312,11 +398,16 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
                 lastDate: DateTime.now().add(const Duration(days: 365)),
                 initialDate: _when,
               );
-              if (date != null) setState(() => _when = date);
+              if (date != null) {
+                setState(() => _when = date);
+                _loadSessions();
+              }
             },
             child: const Text('Change'),
           ),
         ),
+        // Sessions for the chosen doctor + date (migration 0026).
+        if (_selected != null) _sessionPicker(),
         const SizedBox(height: 8),
         FilledButton(
           onPressed: _booking ? null : _book,

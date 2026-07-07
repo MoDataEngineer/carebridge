@@ -64,20 +64,26 @@ class _FakePatientRepo implements PatientRepository {
       ];
 
   @override
-  Future<AppointmentRecord> bookAppointment({
-    required BookableDoctor doctor,
-    required DateTime when,
-  }) async {
-    final appt = AppointmentRecord(
+  Future<List<AvailableSession>> availableSessions(
+          String doctorId, DateTime date) async =>
+      const [
+        AvailableSession(
+            sessionId: 's1',
+            label: 'Morning',
+            startTime: '09:00:00',
+            endTime: '12:00:00',
+            capacity: 20,
+            booked: 0),
+      ];
+
+  @override
+  Future<BookingResult> requestAppointment(String sessionId, DateTime date) async {
+    _appts.add(AppointmentRecord(
       id: 'a${_appts.length + 1}',
-      scheduledTime: when,
+      scheduledTime: date,
       status: 'scheduled',
-      doctorId: doctor.doctorId,
-      doctorName: doctor.doctorName,
-      clinicName: doctor.clinicName,
-    );
-    _appts.add(appt);
-    return appt;
+    ));
+    return const BookingResult(status: 'scheduled', booked: 1, capacity: 20);
   }
 
   @override
@@ -161,6 +167,9 @@ void main() {
     await tester.tap(find.text('Dr Rao').last);
     await tester.pumpAndSettle();
 
+    // Sessions load on doctor selection — pick one, then request.
+    await tester.tap(find.textContaining('Morning'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Request appointment'));
     await tester.pumpAndSettle();
 

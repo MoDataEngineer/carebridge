@@ -47,6 +47,11 @@ class PatientNotification {
           'You\'re checked in — your token is #${payload['token'] ?? '?'}.',
         'your_turn' =>
           'It\'s your turn — token #${payload['token'] ?? '?'}. Please go in.',
+        'appointment_approved' =>
+          'Your appointment request was approved by the doctor.',
+        'appointment_rejected' =>
+          'Your appointment was cancelled by the clinic'
+              '${(payload['reason'] != null && '${payload['reason']}'.isNotEmpty) ? ' — ${payload['reason']}' : ''}.',
         _ => 'You have a new notification.',
       };
 }

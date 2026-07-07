@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/breakpoints.dart';
 import '../../../shared/models/enums.dart';
+import '../../doctor/appointments_screen.dart';
 import '../../doctor/doctor_models.dart';
 import '../../doctor/doctor_workspace_screen.dart';
 import '../../doctor/follow_ups_screen.dart';
@@ -56,13 +57,19 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
         selectedIcon: Icons.people,
         body: DoctorWorkspaceScreen(scope: scope),
       ),
+      const _ShellDestination(
+        label: 'Appointments',
+        icon: Icons.event_note_outlined,
+        selectedIcon: Icons.event_note,
+        body: AppointmentsScreen(),
+      ),
       _ShellDestination(
         label: 'Queue',
         icon: Icons.confirmation_number_outlined,
         selectedIcon: Icons.confirmation_number,
         body: scope.paid ? LiveQueueScreen(scope: scope) : const UpgradeScreen(),
       ),
-      // Third slot is role-specific — same bar, scope-appropriate destination.
+      // Fourth slot is role-specific — same bar, scope-appropriate destination.
       if (scope.canWrite)
         _ShellDestination(
           label: 'Follow-ups',

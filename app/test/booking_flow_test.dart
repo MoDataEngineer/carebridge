@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the hospital/clinic FIRST, then sees only that clinic's doctors (with
 /// specialty), then requests the appointment.
 class _FakeRepo implements PatientRepository {
-  BookableDoctor? booked;
+  String? requestedSessionId;
 
   static const doctors = [
     BookableDoctor(
@@ -40,11 +40,22 @@ class _FakeRepo implements PatientRepository {
   Future<List<AppointmentRecord>> appointments() async => const [];
 
   @override
-  Future<AppointmentRecord> bookAppointment(
-      {required BookableDoctor doctor, required DateTime when}) async {
-    booked = doctor;
-    return AppointmentRecord(
-        id: 'a1', scheduledTime: when, status: 'scheduled');
+  Future<List<AvailableSession>> availableSessions(
+          String doctorId, DateTime date) async =>
+      [
+        AvailableSession(
+            sessionId: 'sess-$doctorId',
+            label: 'Morning',
+            startTime: '09:00:00',
+            endTime: '12:00:00',
+            capacity: 20,
+            booked: 0),
+      ];
+
+  @override
+  Future<BookingResult> requestAppointment(String sessionId, DateTime date) async {
+    requestedSessionId = sessionId;
+    return const BookingResult(status: 'scheduled', booked: 1, capacity: 20);
   }
 
   @override
@@ -100,11 +111,13 @@ void main() {
     await tester.tap(find.text('Dr Priya Sharma · Cardiology').last);
     await tester.pumpAndSettle();
 
-    // Step 3: request the appointment.
+    // Step 3: pick a session for that doctor (loaded on selection), then request.
+    await tester.tap(find.textContaining('Morning'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Request appointment'));
     await tester.pumpAndSettle();
-    expect(repo.booked?.doctorId, 'd1');
-    expect(find.text('Appointment requested'), findsOneWidget);
+    expect(repo.requestedSessionId, 'sess-d1');
+    expect(find.textContaining('Appointment confirmed'), findsOneWidget);
   });
 
   testWidgets('switching clinic clears the picked doctor', (tester) async {
@@ -140,7 +153,7 @@ void main() {
 
     await tester.tap(find.text('Request appointment'));
     await tester.pumpAndSettle();
-    expect(repo.booked, isNull);
-    expect(find.text('Pick a doctor first'), findsOneWidget);
+    expect(repo.requestedSessionId, isNull);
+    expect(find.text('Pick a session first'), findsOneWidget);
   });
 }
