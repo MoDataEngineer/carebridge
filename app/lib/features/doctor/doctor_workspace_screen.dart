@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/enums.dart';
 import '../diagnostics/test_orders_view.dart';
 import '../summary/summary_tab.dart';
+import 'access_flow_dialogs.dart';
 import 'add_visit_form.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
 import 'follow_ups_screen.dart';
+import 'history_tab.dart';
 import 'live_queue_screen.dart';
 import 'upgrade_screen.dart';
 
@@ -27,6 +29,7 @@ class DoctorWorkspaceScreen extends ConsumerStatefulWidget {
 
 class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
   final _query = TextEditingController();
+  final _historyKey = GlobalKey<HistoryTabState>();
   Future<List<PatientSearchResult>>? _results;
   PatientSearchResult? _selected;
 
@@ -81,12 +84,12 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
             IconButton(
               tooltip: 'Add by consent code',
               icon: const Icon(Icons.qr_code_scanner),
-              onPressed: _redeemCodeDialog,
+              onPressed: () => showRedeemConsentCodeDialog(context, ref),
             ),
             IconButton(
               tooltip: 'Request access',
               icon: const Icon(Icons.person_add_alt),
-              onPressed: () => _requestAccessDialog(scope),
+              onPressed: () => showRequestAccessDialog(context, ref, scope),
             ),
           ],
         ],
@@ -95,105 +98,6 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
         padding: const EdgeInsets.all(16),
         child: _selected == null ? _searchView(scopeLabel) : _detailView(scope),
       ),
-    );
-  }
-
-  /// Flow A — redeem a patient's in-person consent code into a standing grant.
-  Future<void> _redeemCodeDialog() async {
-    final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add patient by consent code'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Consent code',
-            hintText: 'Code the patient is showing you',
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Redeem')),
-        ],
-      ),
-    );
-    if (ok != true || ctrl.text.trim().isEmpty) return;
-    try {
-      await ref.read(doctorRepositoryProvider).redeemConsentCode(ctrl.text);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Access granted — search to open the patient')));
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Invalid or expired code: $e')));
-      }
-    }
-  }
-
-  /// Flow B — look up a patient by phone/ABHA and send an access request.
-  Future<void> _requestAccessDialog(DoctorScope scope) async {
-    final ctrl = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        List<PatientSearchResult> results = const [];
-        bool searching = false;
-        return StatefulBuilder(
-          builder: (ctx, setLocal) => AlertDialog(
-            title: const Text('Request access'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: ctrl,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Patient phone or ABHA (exact)',
-                  ),
-                  onSubmitted: (_) async {
-                    setLocal(() => searching = true);
-                    results = await ref
-                        .read(doctorRepositoryProvider)
-                        .lookupForRequest(ctrl.text);
-                    setLocal(() => searching = false);
-                  },
-                ),
-                const SizedBox(height: 12),
-                if (searching) const LinearProgressIndicator(),
-                for (final p in results)
-                  ListTile(
-                    dense: true,
-                    title: Text(p.name),
-                    subtitle: Text(p.phone),
-                    trailing: TextButton(
-                      onPressed: () async {
-                        await ref.read(doctorRepositoryProvider).requestAccess(p.id);
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text('Request sent — awaiting patient approval')));
-                        }
-                      },
-                      child: const Text('Request'),
-                    ),
-                  ),
-                if (!searching && results.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text('Enter an exact phone/ABHA and press enter.',
-                        style: TextStyle(fontSize: 12)),
-                  ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -295,7 +199,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
                 scope.paid
                     ? PatientSummaryTab(patientId: p.id)
                     : _upgradePrompt('AI summary is a Pro feature.'),
-                _historyTab(p),
+                HistoryTab(key: _historyKey, patientId: p.id),
                 // Tests tab: view orders + (doctor-scoped) order a new test.
                 TestOrdersView(patientId: p.id, canOrder: scope.canWrite),
                 scope.canWrite
@@ -307,7 +211,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Visit saved')));
                             // Bounce back to History so the new visit shows.
-                            setState(() {});
+                            _historyKey.currentState?.reload();
                             DefaultTabController.of(context).animateTo(1);
                           },
                         ),
@@ -318,62 +222,6 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _historyTab(PatientSearchResult p) {
-    return FutureBuilder<List<VisitRecord>>(
-      // Re-read each build so a just-saved visit appears.
-      future: ref.read(doctorRepositoryProvider).patientHistory(p.id),
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final visits = snap.data ?? const [];
-        if (visits.isEmpty) {
-          return const Center(child: Text('No visits recorded yet.'));
-        }
-        return ListView.builder(
-          itemCount: visits.length,
-          itemBuilder: (context, i) {
-            final v = visits[i];
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(v.visitDate.toString().substring(0, 10),
-                        style: Theme.of(context).textTheme.labelSmall),
-                    Text(v.diagnosis ?? '(no diagnosis)',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    if (v.notes != null && v.notes!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(v.notes!),
-                    ],
-                    for (final rx in v.prescriptions)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '• ${rx.drugName}'
-                          '${rx.dosage != null ? ' ${rx.dosage}' : ''}'
-                          ' · ${rx.scheduleLabel}'
-                          '${rx.durationDays != null ? ' · ${rx.durationDays}d' : ''}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    if (v.followUpDate != null) ...[
-                      const SizedBox(height: 4),
-                      Text('Follow-up: ${v.followUpDate!.toString().substring(0, 10)}',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -390,7 +238,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
           FilledButton(
             onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const UpgradeScreen())),
-            child: const Text('See CareBridge Pro'),
+            child: const Text('See Ayulekha Pro'),
           ),
         ],
       ),
