@@ -72,12 +72,19 @@ class _FakePatientRepo implements PatientRepository {
       id: 'a${_appts.length + 1}',
       scheduledTime: when,
       status: 'scheduled',
+      doctorId: doctor.doctorId,
       doctorName: doctor.doctorName,
       clinicName: doctor.clinicName,
     );
     _appts.add(appt);
     return appt;
   }
+
+  @override
+  Stream<void> appointmentChanges() => const Stream.empty();
+
+  @override
+  Future<NowServing?> nowServing(String doctorId) async => null;
 }
 
 Widget _harness(_FakePatientRepo repo) => ProviderScope(

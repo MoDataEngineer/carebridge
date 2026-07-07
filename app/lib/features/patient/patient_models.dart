@@ -109,15 +109,46 @@ class AppointmentRecord {
     required this.id,
     required this.scheduledTime,
     required this.status,
+    this.queuePosition,
+    this.doctorId,
     this.clinicName,
     this.doctorName,
   });
 
   final String id;
   final DateTime scheduledTime;
-  final String status;
+  final String status; // requested | scheduled | waiting | in_consultation | completed | cancelled
+  final int? queuePosition; // token, assigned at check-in
+  final String? doctorId;
   final String? clinicName;
   final String? doctorName;
+
+  /// The live token flow happens on the visit day only.
+  bool get isToday {
+    final now = DateTime.now();
+    return scheduledTime.year == now.year &&
+        scheduledTime.month == now.month &&
+        scheduledTime.day == now.day;
+  }
+
+  /// True while the patient is actively in today's queue.
+  bool get isActiveToday =>
+      isToday && (status == 'waiting' || status == 'in_consultation');
+}
+
+/// The doctor's live queue position, as a waiting patient may see it — the
+/// current token and how many are waiting, no other patient's identity.
+class NowServing {
+  const NowServing({this.servingToken, this.waitingCount = 0});
+  final int? servingToken;
+  final int waitingCount;
+
+  /// Patients ahead of [myToken] (null if unknown / already serving me).
+  int? aheadOf(int? myToken) {
+    if (myToken == null || servingToken == null) return null;
+    final ahead = myToken - servingToken! - 1;
+    return ahead < 0 ? 0 : ahead;
+  }
 }
 
 /// Minimal bookable slot target for Phase 3 (real availability is Phase 10).

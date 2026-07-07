@@ -20,6 +20,15 @@ abstract class PatientRepository {
     required BookableDoctor doctor,
     required DateTime when,
   });
+
+  /// Fires whenever one of the patient's own appointment rows changes (Supabase
+  /// Realtime, RLS-scoped to self). A SIGNAL — consumers refetch on each event.
+  Stream<void> appointmentChanges();
+
+  /// The doctor's live queue position for today (current token + waiting count),
+  /// visible to a patient who has an appointment with that doctor today. Null
+  /// when there's nothing in progress.
+  Future<NowServing?> nowServing(String doctorId);
 }
 
 class SupabasePatientRepository implements PatientRepository {
@@ -89,15 +98,34 @@ class SupabasePatientRepository implements PatientRepository {
   Future<List<AppointmentRecord>> appointments() async {
     final rows = await _client
         .from('appointments')
-        .select('id, scheduled_time, status')
+        .select('id, scheduled_time, status, queue_position, doctor_id')
         .order('scheduled_time', ascending: true);
     return (rows as List)
         .map((m) => AppointmentRecord(
               id: m['id'] as String,
               scheduledTime: DateTime.parse(m['scheduled_time'].toString()),
               status: (m['status'] ?? 'scheduled') as String,
+              queuePosition: m['queue_position'] as int?,
+              doctorId: m['doctor_id'] as String?,
             ))
         .toList();
+  }
+
+  @override
+  Stream<void> appointmentChanges() =>
+      _client.from('appointments').stream(primaryKey: ['id']).map((_) {});
+
+  @override
+  Future<NowServing?> nowServing(String doctorId) async {
+    final res = await _client
+        .rpc('carebridge_now_serving', params: {'p_doctor': doctorId});
+    final list = (res ?? []) as List;
+    if (list.isEmpty) return null;
+    final m = list.first as Map<String, dynamic>;
+    return NowServing(
+      servingToken: m['serving_token'] as int?,
+      waitingCount: (m['waiting_count'] ?? 0) as int,
+    );
   }
 
   @override

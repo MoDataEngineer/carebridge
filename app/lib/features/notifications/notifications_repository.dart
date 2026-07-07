@@ -43,6 +43,10 @@ class PatientNotification {
         'medication_reminder' =>
           'Medication reminder (${payload['slot'] ?? ''}): '
               '${(payload['drugs'] as List?)?.join(', ') ?? 'your medication'}.',
+        'checked_in' =>
+          'You\'re checked in — your token is #${payload['token'] ?? '?'}.',
+        'your_turn' =>
+          'It\'s your turn — token #${payload['token'] ?? '?'}. Please go in.',
         _ => 'You have a new notification.',
       };
 }

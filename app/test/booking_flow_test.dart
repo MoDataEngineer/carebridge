@@ -56,6 +56,12 @@ class _FakeRepo implements PatientRepository {
 
   @override
   Future<List<VisitRecord>> visitHistory() async => const [];
+
+  @override
+  Stream<void> appointmentChanges() => const Stream.empty();
+
+  @override
+  Future<NowServing?> nowServing(String doctorId) async => null;
 }
 
 void main() {
