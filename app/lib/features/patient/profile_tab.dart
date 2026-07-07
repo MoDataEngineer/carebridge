@@ -135,6 +135,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             label: const Text('No ABHA yet? Create one on the official ABDM site'),
           ),
         ),
+        const SizedBox(height: 8),
+        const _SafetyHeader(),
         _ChipEditor(
           label: 'Allergies',
           values: _allergies,
@@ -161,6 +163,46 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               : const Text('Save profile'),
         ),
       ],
+    );
+  }
+}
+
+/// Prominent banner over the allergies / conditions / medications fields — this
+/// is the Layer-1 safety information a doctor sees first, so it must stay
+/// visible and never collapse into an accordion (UI brief §3).
+class _SafetyHeader extends StatelessWidget {
+  const _SafetyHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.health_and_safety_outlined, color: scheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Safety information',
+                    style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  'Shown to any doctor you grant access — keep it up to date.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

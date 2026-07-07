@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/empty_state.dart';
+import '../../shared/widgets/skeleton_loader.dart';
 import 'diagnostics_models.dart';
 import 'diagnostics_repository.dart';
 
@@ -47,14 +50,22 @@ class _TestOrdersViewState extends ConsumerState<TestOrdersView> {
         future: _orders,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const SkeletonLoader();
           }
           if (snap.hasError) {
             return Center(child: Text('Could not load tests: ${snap.error}'));
           }
           final orders = snap.data ?? const [];
           if (orders.isEmpty) {
-            return const Center(child: Text('No tests ordered yet.'));
+            return EmptyState(
+              icon: Icons.science_outlined,
+              title: 'No tests yet',
+              message: widget.canOrder
+                  ? 'Tests you order appear here with live status. Tap "Order '
+                      'test" to create one — the patient shows the code at any lab.'
+                  : 'Lab and imaging tests ordered for you will appear here — '
+                      'with their status and results you can view in the app.',
+            );
           }
           return ListView.builder(
             padding: const EdgeInsets.all(12),
@@ -155,27 +166,44 @@ class _TestOrdersViewState extends ConsumerState<TestOrdersView> {
   }
 }
 
-/// A status chip with a friendly label per test_status value.
+/// A status pill for a test_status value. Pairs colour with an icon AND a text
+/// label so status is never conveyed by colour alone (UI brief §5).
 class _StatusChip extends StatelessWidget {
   const _StatusChip(this.status);
   final String status;
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (status) {
-      'ordered' => 'Ordered',
-      'sample_collected' => 'Sample collected',
-      'in_progress' => 'In progress',
-      'report_ready' => 'Report ready',
-      'cancelled' => 'Cancelled',
-      _ => status,
+    final scheme = Theme.of(context).colorScheme;
+    final s = AppStatusColors.of(context);
+    final (String label, IconData icon, Color color) = switch (status) {
+      'ordered' => ('Ordered', Icons.receipt_long, scheme.onSurfaceVariant),
+      'sample_collected' => ('Sample collected', Icons.colorize, s.info),
+      'in_progress' => ('In progress', Icons.hourglass_bottom, s.warning),
+      'report_ready' => ('Report ready', Icons.check_circle, s.success),
+      'cancelled' => ('Cancelled', Icons.cancel, scheme.error),
+      _ => (status, Icons.help_outline, scheme.onSurfaceVariant),
     };
-    return Chip(
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-      backgroundColor: status == 'report_ready'
-          ? Theme.of(context).colorScheme.primaryContainer
-          : null,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(color: color, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 }
