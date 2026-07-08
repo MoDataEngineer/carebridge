@@ -87,3 +87,19 @@ final appointmentsRepositoryProvider = Provider<AppointmentsRepository>((ref) {
   }
   return SupabaseAppointmentsRepository(SupabaseService.client);
 });
+
+/// Live count of pending ('requested') appointments for the active scope — used
+/// to badge the Appointments nav tab so the doctor sees new requests arrive
+/// without a push notification. Refetches whenever appointment rows change.
+final pendingRequestCountProvider = StreamProvider.autoDispose<int>((ref) async* {
+  final repo = ref.watch(appointmentsRepositoryProvider);
+  Future<int> count() async {
+    final list = await repo.upcoming();
+    return list.where((a) => a.isPending).length;
+  }
+
+  yield await count();
+  await for (final _ in repo.changes()) {
+    yield await count();
+  }
+});

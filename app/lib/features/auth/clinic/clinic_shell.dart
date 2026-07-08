@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/breakpoints.dart';
 import '../../../shared/models/enums.dart';
+import '../../doctor/appointments_repository.dart';
 import '../../doctor/appointments_screen.dart';
 import '../../doctor/doctor_models.dart';
 import '../../doctor/doctor_workspace_screen.dart';
@@ -49,6 +50,8 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
       paid: s.paid,
     );
     final unverified = state.login?.verified == false;
+    // Live badge on the Appointments tab: how many requests are pending.
+    final pending = ref.watch(pendingRequestCountProvider).valueOrNull ?? 0;
 
     final destinations = <_ShellDestination>[
       _ShellDestination(
@@ -128,8 +131,8 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
                 destinations: [
                   for (final d in destinations)
                     NavigationRailDestination(
-                      icon: Icon(d.icon),
-                      selectedIcon: Icon(d.selectedIcon),
+                      icon: _destIcon(d, d.icon, pending),
+                      selectedIcon: _destIcon(d, d.selectedIcon, pending),
                       label: Text(d.label),
                     ),
                 ],
@@ -150,13 +153,23 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
         destinations: [
           for (final d in destinations)
             NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
+              icon: _destIcon(d, d.icon, pending),
+              selectedIcon: _destIcon(d, d.selectedIcon, pending),
               label: d.label,
             ),
         ],
       ),
     );
+  }
+
+  /// Badges the Appointments tab with the pending-request count (a live
+  /// "you have N requests" signal in place of a push notification).
+  Widget _destIcon(_ShellDestination d, IconData icon, int pending) {
+    final ic = Icon(icon);
+    if (d.label == 'Appointments' && pending > 0) {
+      return Badge(label: Text('$pending'), child: ic);
+    }
+    return ic;
   }
 }
 
