@@ -109,10 +109,21 @@ async function abhaPublicKey(token: string): Promise<CryptoKey> {
   );
 }
 
+// Chunked base64 — safe for buffers of any size (spreading a big Uint8Array
+// into String.fromCharCode overflows the call stack, e.g. on the ABHA card PNG).
+function bytesToB64(buf: Uint8Array): string {
+  let bin = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < buf.length; i += CHUNK) {
+    bin += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
 async function rsaEncrypt(key: CryptoKey, plaintext: string): Promise<string> {
   const ct = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, key,
     new TextEncoder().encode(plaintext));
-  return btoa(String.fromCharCode(...new Uint8Array(ct)));
+  return bytesToB64(new Uint8Array(ct));
 }
 
 Deno.serve(async (req) => {
@@ -232,6 +243,101 @@ Deno.serve(async (req) => {
       });
       const text = await res.text();
       return json({ status: res.status, body: safeJson(text) }, res.ok ? 200 : 502);
+    }
+
+    // --- abha_login_request_otp: existing-ABHA verify, step 1 (VRFY_ABHA_101/201) --
+    // Sends an OTP for logging in to an EXISTING ABHA. `id` is the ABHA number /
+    // ABHA address / Aadhaar / mobile the user is proving ownership of; it is
+    // RSA-encrypted here and relayed, never stored (ID-6).
+    //   otpSystem "aadhaar" -> OTP to Aadhaar-linked mobile (VRFY_ABHA_101)
+    //   otpSystem "abdm"    -> OTP to ABHA-linked mobile   (VRFY_ABHA_201)
+    if (action === "abha_login_request_otp") {
+      const id = String(payload.id ?? "").replace(/\s/g, "");
+      if (!id) return json({ error: "id_required" }, 400);
+      const loginHint = String(payload.loginHint ?? "abha-number");
+      const otpSystem = String(payload.otpSystem ?? "aadhaar");
+      const scope = Array.isArray(payload.scope)
+        ? (payload.scope as string[])
+        : ["abha-login", otpSystem === "aadhaar" ? "aadhaar-verify" : "mobile-verify"];
+      const token = await getSessionToken();
+      const key = await abhaPublicKey(token);
+      const res = await fetch(`${ABHA_BASE}/v3/profile/login/request/otp`, {
+        method: "POST",
+        headers: abdmHeaders(token),
+        body: JSON.stringify({
+          scope,
+          loginHint,
+          loginId: await rsaEncrypt(key, id),
+          otpSystem,
+        }),
+      });
+      const text = await res.text();
+      return json({ status: res.status, body: safeJson(text) }, res.ok ? 200 : 502);
+    }
+
+    // --- abha_login_verify: existing-ABHA verify, step 2 -> returns X-token ---
+    // The returned `token` is the profile (X-)token used by abha_profile /
+    // abha_card below. `scope` must match the one used at request time.
+    if (action === "abha_login_verify") {
+      const txnId = String(payload.txnId ?? "");
+      const otp = String(payload.otp ?? "");
+      if (!txnId || !otp) return json({ error: "txnId_and_otp_required" }, 400);
+      const otpSystem = String(payload.otpSystem ?? "aadhaar");
+      const scope = Array.isArray(payload.scope)
+        ? (payload.scope as string[])
+        : ["abha-login", otpSystem === "aadhaar" ? "aadhaar-verify" : "mobile-verify"];
+      const token = await getSessionToken();
+      const key = await abhaPublicKey(token);
+      const res = await fetch(`${ABHA_BASE}/v3/profile/login/verify`, {
+        method: "POST",
+        headers: abdmHeaders(token),
+        body: JSON.stringify({
+          scope,
+          authData: {
+            authMethods: ["otp"],
+            otp: { txnId, otpValue: await rsaEncrypt(key, otp) },
+          },
+        }),
+      });
+      const text = await res.text();
+      return json({ status: res.status, body: safeJson(text) }, res.ok ? 200 : 502);
+    }
+
+    // --- abha_profile: fetch the ABHA profile with a profile token ---
+    // `xToken` is the `token` returned by abha_login_verify (or enrolment).
+    if (action === "abha_profile") {
+      const xToken = String(payload.xToken ?? "");
+      if (!xToken) return json({ error: "xToken_required" }, 400);
+      const token = await getSessionToken();
+      const res = await fetch(`${ABHA_BASE}/v3/profile/account`, {
+        method: "GET",
+        headers: { ...abdmHeaders(token), "X-token": `Bearer ${xToken}` },
+      });
+      const text = await res.text();
+      return json({ status: res.status, body: safeJson(text) }, res.ok ? 200 : 502);
+    }
+
+    // --- abha_card: fetch the ABHA card (PNG) with a profile token ---
+    // Returns the raw card body (base64/JSON as ABDM sends it) for the client
+    // to render; the profile token is scoped to this session only.
+    if (action === "abha_card") {
+      const xToken = String(payload.xToken ?? "");
+      if (!xToken) return json({ error: "xToken_required" }, 400);
+      const token = await getSessionToken();
+      const res = await fetch(`${ABHA_BASE}/v3/profile/account/abha-card`, {
+        method: "GET",
+        headers: { ...abdmHeaders(token), "X-token": `Bearer ${xToken}`, "Accept": "image/png" },
+      });
+      const buf = new Uint8Array(await res.arrayBuffer());
+      // ABDM returns a PNG; hand it back as a data-URI the Flutter client can show.
+      const b64 = bytesToB64(buf);
+      return json({
+        status: res.status,
+        contentType: res.headers.get("content-type"),
+        length: buf.length,
+        dataUri: res.ok ? `data:image/png;base64,${b64}` : undefined,
+        body: res.ok ? undefined : safeJson(new TextDecoder().decode(buf)),
+      }, res.ok ? 200 : 502);
     }
 
     // --- raw: probe an arbitrary path/method (onboarding diagnostics only) ---
