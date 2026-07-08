@@ -27,3 +27,13 @@ verify_jwt = true
 
 [functions.mint-scope-token]
 verify_jwt = true
+
+# ABDM sandbox onboarding (Phase 11b). Holds the bridge credentials as secrets;
+# a valid JWT is required to invoke. Before production, gate its actions to an
+# admin/founder session — sandbox onboarding is a one-time setup operation.
+[functions.abdm-gateway]
+verify_jwt = true
+
+# The HTTPS host ABDM's gateway calls back on. PUBLIC — ABDM has no Supabase JWT.
+[functions.abdm-callback]
+verify_jwt = false
