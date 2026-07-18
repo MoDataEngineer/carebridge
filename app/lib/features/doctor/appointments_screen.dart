@@ -232,17 +232,28 @@ class _ApptCard extends StatelessWidget {
             Text(sub, style: Theme.of(context).textTheme.bodySmall),
             if (!closed) ...[
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              // The app theme sets minimumSize: Size.fromHeight(52) — INFINITE
+              // min width. Fine where parents bound width (ListView/stretched
+              // Column), but inside an unbounded Row it forces an impossible
+              // layout and the buttons silently failed to paint in release
+              // ("pending but no approve" bug, 2026-07-18). Compact minimums +
+              // a Wrap (flows on narrow widths) keep the actions visible.
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   if (appt.isPending)
                     FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size(44, 44)),
                       onPressed: onApprove,
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approve'),
                     ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(44, 44)),
                     onPressed: onReject,
                     icon: const Icon(Icons.close, size: 18),
                     label: Text(appt.isPending ? 'Decline' : 'Cancel'),
