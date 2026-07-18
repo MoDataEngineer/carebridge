@@ -230,6 +230,19 @@ class _ApptCard extends StatelessWidget {
               ],
             ),
             Text(sub, style: Theme.of(context).textTheme.bodySmall),
+            if (appt.patientPhone != null && appt.patientPhone!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  children: [
+                    Icon(Icons.phone, size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    SelectableText(appt.patientPhone!,
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
             if (!closed) ...[
               const SizedBox(height: 8),
               // The app theme sets minimumSize: Size.fromHeight(52) — INFINITE

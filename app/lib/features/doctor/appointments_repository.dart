@@ -9,6 +9,7 @@ class UpcomingAppointment {
   const UpcomingAppointment({
     required this.appointmentId,
     required this.patientName,
+    this.patientPhone,
     required this.doctorId,
     required this.doctorName,
     required this.scheduledTime,
@@ -18,6 +19,7 @@ class UpcomingAppointment {
 
   final String appointmentId;
   final String patientName;
+  final String? patientPhone; // founder 2026-07-18: clinic can reach the patient
   final String doctorId;
   final String doctorName;
   final DateTime scheduledTime;
@@ -29,6 +31,7 @@ class UpcomingAppointment {
   factory UpcomingAppointment.fromMap(Map<String, dynamic> m) => UpcomingAppointment(
         appointmentId: m['appointment_id'] as String,
         patientName: (m['patient_name'] ?? '') as String,
+        patientPhone: m['patient_phone'] as String?,
         doctorId: m['doctor_id'] as String,
         doctorName: (m['doctor_name'] ?? '') as String,
         scheduledTime: DateTime.parse(m['scheduled_time'].toString()),

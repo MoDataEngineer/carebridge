@@ -65,6 +65,7 @@ UpcomingAppointment _appt(String id, String status, {int daysAhead = 1}) =>
     UpcomingAppointment(
       appointmentId: id,
       patientName: 'Asha Rao',
+      patientPhone: '+919000000001',
       doctorId: 'd1',
       doctorName: 'Dr Priya Sharma',
       scheduledTime: DateTime.now().add(Duration(days: daysAhead)),
@@ -93,8 +94,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // Pending pill AND its actions are all present.
+    // Pending pill AND its actions are all present; contact number shown
+    // (founder 2026-07-18).
     expect(find.text('Pending'), findsOneWidget);
+    expect(find.text('+919000000001'), findsNWidgets(2));
     expect(find.text('Approve'), findsOneWidget);
     expect(find.text('Decline'), findsOneWidget);
     // The confirmed row offers Cancel (not Approve).
