@@ -60,6 +60,11 @@ abstract class NotificationsRepository {
   /// The signed-in patient's feed, newest first (RLS scopes rows).
   Future<List<PatientNotification>> feed();
 
+  /// LIVE feed (Supabase Realtime, RLS-scoped to self), newest first. Each
+  /// event is the full current list — powers the unread badge and the arrival
+  /// sound without polling.
+  Stream<List<PatientNotification>> watchFeed();
+
   /// Register this device's FCM token. STUB until Firebase is configured
   /// (Phase 8 flag): safe to call — becomes real with firebase_messaging.
   Future<void> registerDeviceToken(String token, String platform);
@@ -81,6 +86,17 @@ class SupabaseNotificationsRepository implements NotificationsRepository {
         PatientNotification.fromMap(m as Map<String, dynamic>)
     ];
   }
+
+  @override
+  Stream<List<PatientNotification>> watchFeed() => _client
+          .from('notifications')
+          .stream(primaryKey: ['id'])
+          .order('scheduled_for', ascending: false)
+          .limit(100)
+          .map((rows) => [
+                for (final m in rows)
+                  PatientNotification.fromMap(Map<String, dynamic>.from(m))
+              ]);
 
   @override
   Future<void> registerDeviceToken(String token, String platform) async {

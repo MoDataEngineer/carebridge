@@ -16,6 +16,9 @@ class _FakeNotificationsRepo implements NotificationsRepository {
   Future<List<PatientNotification>> feed() async => items;
 
   @override
+  Stream<List<PatientNotification>> watchFeed() => Stream.value(items);
+
+  @override
   Future<void> registerDeviceToken(String token, String platform) async {}
 }
 
