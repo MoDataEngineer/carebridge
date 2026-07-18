@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../shared/models/enums.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/skeleton_loader.dart';
 import '../../shared/widgets/theme_toggle_button.dart';
+import '../auth/clinic/availability_screen.dart';
 import '../auth/clinic/clinic_sign_out_button.dart';
+import '../auth/clinic/session_controller.dart';
 import 'appointments_repository.dart';
 
 /// Clinic appointments dashboard (founder request 2026-07-07): TODAY + FUTURE
@@ -111,21 +114,53 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final appts = _appts;
+    // Gap A (founder 2026-07-18): a DOCTOR-scoped session (incl. solo — which
+    // never sees the admin roster) needs its own way into the availability
+    // editor; without sessions set, patients see nothing to book. The RPC
+    // already allows a doctor to edit their own schedule (0025).
+    final session = ref.watch(clinicSessionControllerProvider);
+    final active = session.active;
+    final ownDoctorId =
+        (active?.role == ActiveRole.doctor) ? active?.doctorId : null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Appointments'),
         automaticallyImplyLeading: false,
-        actions: const [ThemeToggleButton(), ClinicSignOutButton()],
+        actions: [
+          if (ownDoctorId != null)
+            IconButton(
+              tooltip: 'My availability',
+              icon: const Icon(Icons.edit_calendar_outlined),
+              onPressed: () {
+                var name = 'My schedule';
+                for (final d in session.login?.doctors ?? const []) {
+                  if (d.id == ownDoctorId) {
+                    name = d.name;
+                    break;
+                  }
+                }
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => AvailabilityScreen(
+                      doctorId: ownDoctorId, doctorName: name),
+                ));
+              },
+            ),
+          const ThemeToggleButton(),
+          const ClinicSignOutButton(),
+        ],
       ),
       body: appts == null
           ? const SkeletonLoader()
           : appts.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: Icons.event_available,
                   title: 'No upcoming appointments',
-                  message:
-                      'Requests patients make — for today and future days — show '
-                      'up here to approve or decline.')
+                  message: ownDoctorId != null
+                      ? 'Requests patients make — for today and future days — '
+                          'show up here. Patients can only book once you\'ve set '
+                          'your consultation times: tap the calendar icon above.'
+                      : 'Requests patients make — for today and future days — show '
+                          'up here to approve or decline.')
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: _buildGrouped(context, appts),
