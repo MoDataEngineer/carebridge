@@ -8,6 +8,8 @@
 --     Dr Ravi Kumar    PIN 1234
 --   Patient Asha Rao (+919000000001) has a standing grant to Dr Priya, one visit,
 --   one prescription, and a structured HbA1c report -> AI summary has real input.
+--   Diagnostic partner "City Diagnostics": reg number LAB-DEMO-1, PIN 1234
+--   (real flat login since migration 0028).
 
 insert into clinics (id, name, registration_number, admin_pin_hash, phone, verified, state, city) values
   ('11111111-1111-1111-1111-111111111101', 'Sunrise Family Clinic', 'DEMO-001', crypt('9999', gen_salt('bf')),

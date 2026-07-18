@@ -107,7 +107,8 @@ Deno.serve(async (req) => {
   // Audit M3: per-IP rolling-window rate limit on login/register (the
   // unauthenticated actions). 20 attempts / 10 minutes per IP per action.
   if (payload.action === "login" || payload.action === "register" ||
-      payload.action === "patient_login" || payload.action === "send_otp") {
+      payload.action === "patient_login" || payload.action === "send_otp" ||
+      payload.action === "partner_login" || payload.action === "partner_register") {
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
     const { data: allowed, error: rateErr } = await admin.rpc("carebridge_rate_ok", {
       p_key: `${payload.action}:${ip}`,
@@ -429,6 +430,140 @@ Deno.serve(async (req) => {
       access_token: session.session.access_token,
       refresh_token: session.session.refresh_token,
       auth_user_id: authUserId,
+    });
+  }
+
+  // ---------------- action: partner_register ----------------
+  // Section 2.3 + ID-5: FLAT diagnostic-partner signup — lab name, type,
+  // registration/license number (mandatory), phone, PIN; optional HFR/NABL.
+  // Starts unverified (founder confirms the registration number, like H2).
+  if (payload.action === "partner_register") {
+    const name = String(payload.name ?? "").trim();
+    const regNo = String(payload.registration_number ?? "").trim();
+    const phone10 = normPhone(payload.phone);
+    const pin = String(payload.pin ?? "");
+    const type = String(payload.type ?? "both");
+    if (!name || !regNo) return json({ error: "name_and_registration_required" }, 400);
+    if (phone10.length < 10) return json({ error: "valid_phone_required" }, 400);
+    if (!/^\d{4,8}$/.test(pin)) return json({ error: "pin_4_to_8_digits" }, 400);
+    if (!["lab", "imaging", "both"].includes(type)) return json({ error: "bad_type" }, 400);
+
+    const { data: existing } = await admin
+      .from("diagnostic_partners").select("id")
+      .or(`registration_number.eq.${regNo},phone.eq.+91${phone10}`)
+      .maybeSingle();
+    if (existing) return json({ error: "already_registered",
+      detail: "a lab with this registration number or phone already exists — sign in instead" }, 409);
+
+    const { data: created, error: insErr } = await admin
+      .from("diagnostic_partners")
+      .insert({
+        name,
+        type,
+        registration_number: regNo,
+        phone: `+91${phone10}`,
+        hfr_id: payload.hfr_id ? String(payload.hfr_id).trim() : null,
+        nabl_accredited: payload.nabl_accredited === true ? true : null,
+        verified: false,
+      })
+      .select("id").single();
+    if (insErr || !created) return json({ error: "register_failed" }, 500);
+
+    const { error: pinErr } = await admin.rpc("carebridge_set_pin", {
+      p_type: "partner", p_id: created.id, p_pin: pin,
+    });
+    if (pinErr) return json({ error: "pin_store_failed" }, 500);
+
+    // Fall through to partner_login semantics via the shared sign-in below.
+    payload.action = "partner_login";
+    payload.registration_number = regNo;
+    payload.pin = pin;
+  }
+
+  // ---------------- action: partner_login ----------------
+  // Registration number + PIN -> real GoTrue session whose auth user is bound
+  // to diagnostic_partners.auth_user_id, which current_partner_id() (0011) and
+  // every Flow-C policy already key on. Same Vault password pattern as clinics.
+  if (payload.action === "partner_login") {
+    const regNo = String(payload.registration_number ?? "").trim();
+    const pin = String(payload.pin ?? "");
+    if (!regNo) return json({ error: "registration_number_required" }, 400);
+    if (!pin) return json({ error: "pin_required" }, 400);
+
+    const { data: partner, error: pErr } = await admin
+      .from("diagnostic_partners")
+      .select("id, name, type, registration_number, hfr_id, nabl_accredited, verified, auth_user_id")
+      .eq("registration_number", regNo)
+      .maybeSingle();
+    if (pErr) return json({ error: "lookup_failed" }, 500);
+    if (!partner) return json({ error: "partner_not_found",
+      detail: "no lab is registered with this number" }, 404);
+
+    // PIN check — server-only RPC, bcrypt + 5-strike lockout (0028).
+    const { data: result, error: vErr } = await admin.rpc("carebridge_verify_pin", {
+      p_type: "partner", p_id: partner.id, p_pin: pin,
+    });
+    if (vErr) return json({ error: "verify_failed" }, 500);
+    if (!result?.ok) {
+      return json({
+        error: "pin_rejected",
+        reason: result?.reason ?? "bad_pin",
+        locked_until: result?.locked_until ?? null,
+      }, 401);
+    }
+
+    const email = `partner.${regNo.toLowerCase().replace(/[^a-z0-9]/g, "")}@carebridge.internal`;
+    let authUserId = partner.auth_user_id as string | null;
+    let password: string;
+
+    if (!authUserId) {
+      password = randomSecret();
+      const { data: createdUser, error: createErr } = await admin.auth.admin.createUser({
+        email, password, email_confirm: true,
+        user_metadata: { partner_id: partner.id, kind: "diagnostic_partner" },
+      });
+      if (createErr || !createdUser.user) return json({ error: "provision_failed" }, 500);
+      authUserId = createdUser.user.id;
+      const { error: secErr } = await admin.rpc("carebridge_set_partner_secret", {
+        p_partner_id: partner.id, p_secret: password,
+      });
+      if (secErr) return json({ error: "secret_store_failed" }, 500);
+      await admin.from("diagnostic_partners")
+        .update({ auth_user_id: authUserId }).eq("id", partner.id);
+    } else {
+      const { data: stored, error: getErr } = await admin.rpc("carebridge_get_partner_secret", {
+        p_partner_id: partner.id,
+      });
+      if (getErr) return json({ error: "secret_read_failed" }, 500);
+      if (stored) {
+        password = stored as string;
+      } else {
+        password = randomSecret();
+        const { error: resetErr } = await admin.auth.admin.updateUserById(authUserId, { password });
+        if (resetErr) return json({ error: "reset_failed" }, 500);
+        const { error: secErr } = await admin.rpc("carebridge_set_partner_secret", {
+          p_partner_id: partner.id, p_secret: password,
+        });
+        if (secErr) return json({ error: "secret_store_failed" }, 500);
+      }
+    }
+
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: session, error: sErr } =
+      await userClient.auth.signInWithPassword({ email, password });
+    if (sErr || !session.session) return json({ error: "signin_failed" }, 500);
+
+    return json({
+      partner_id: partner.id,
+      partner_name: partner.name,
+      type: partner.type,
+      hfr_id: partner.hfr_id,
+      nabl_accredited: partner.nabl_accredited === true,
+      verified: partner.verified === true,
+      access_token: session.session.access_token,
+      refresh_token: session.session.refresh_token,
     });
   }
 
