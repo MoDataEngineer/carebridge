@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/constants/medical_conditions.dart';
+import '../abha/abdm_models.dart';
+import '../abha/abha_link_screen.dart';
 import 'patient_models.dart';
 import 'patient_repository.dart';
-
-/// Official ABHA self-registration (Aadhaar-based). Opened externally — real
-/// in-app ABHA verification needs ABDM sandbox keys (Phase 11b, flagged).
-final Uri _abhaCreateUrl =
-    Uri.parse('https://abha.abdm.gov.in/abha/v3/register/aadhaar');
 
 /// Profile tab: structured allergies / chronic conditions / current medications
 /// (Section 5.1), editable and saved back through the patient-self RLS path.
@@ -29,6 +25,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   late List<String> _meds;
   bool _loading = true;
   bool _saving = false;
+  bool _linking = false;
   String? _error;
 
   @override
@@ -91,6 +88,23 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     }
   }
 
+  /// Open the in-app ABHA flow (create or verify). On success the linked ABHA
+  /// number flows back into the field and the profile is saved immediately, so
+  /// the link is persisted without a second tap.
+  Future<void> _linkAbha(AbhaLinkMode mode) async {
+    setState(() => _linking = true);
+    try {
+      final profile = await Navigator.of(context).push<AbhaProfile>(
+        MaterialPageRoute(builder: (_) => AbhaLinkScreen(mode: mode)),
+      );
+      if (profile == null || !mounted) return;
+      _abha.text = profile.abhaNumber;
+      await _save();
+    } finally {
+      if (mounted) setState(() => _linking = false);
+    }
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -122,18 +136,32 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(
             labelText: 'ABHA number (optional)',
-            hintText: '14-digit ABHA — leave blank if you don\'t have one',
+            hintText: '14-digit ABHA — link it below, or leave blank',
             border: OutlineInputBorder(),
           ),
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () =>
-                launchUrl(_abhaCreateUrl, mode: LaunchMode.externalApplication),
-            icon: const Icon(Icons.open_in_new, size: 16),
-            label: const Text('No ABHA yet? Create one on the official ABDM site'),
-          ),
+        const SizedBox(height: 8),
+        // ID-1 / ID-2: link an ABHA in-app via ABDM. Create makes a new ABHA
+        // from Aadhaar; Verify links an existing one. Both write the resulting
+        // number back into the field above and save.
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _linking ? null : () => _linkAbha(AbhaLinkMode.create),
+                icon: const Icon(Icons.add_card, size: 18),
+                label: const Text('Create ABHA'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _linking ? null : () => _linkAbha(AbhaLinkMode.verify),
+                icon: const Icon(Icons.verified_user_outlined, size: 18),
+                label: const Text('Verify ABHA'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         const _SafetyHeader(),

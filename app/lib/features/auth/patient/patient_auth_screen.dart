@@ -139,7 +139,19 @@ class _PatientAuthScreenState extends ConsumerState<PatientAuthScreen> {
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () {}, // ABHA verification needs ABDM sandbox keys (Phase 11b)
+            // ABHA create/verify runs against ABDM through the signed-in
+            // session (the gateway needs a JWT), so it lives in the profile
+            // after sign-in rather than here.
+            onPressed: _busy
+                ? null
+                : () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Sign in first, then create or verify your ABHA from '
+                          'your profile.',
+                        ),
+                      ),
+                    ),
             icon: const Icon(Icons.link),
             label: Text(
               Env.requireAbha
