@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/code_qr.dart';
 import '../../shared/widgets/fade_slide_in.dart';
 import '../../shared/widgets/glass_panel.dart';
 import 'consent_models.dart';
@@ -70,7 +71,6 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
   /// code lives ONLY here, so a patient shows it full-screen and it never
   /// clutters the scrolling list.
   void _showCodeOverlay(ConsentCode code) {
-    final scheme = Theme.of(context).colorScheme;
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.25),
@@ -82,16 +82,17 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.qr_code_2, size: 56, color: scheme.primary),
-                  const SizedBox(height: 12),
                   Text('Show this code to your doctor',
                       textAlign: TextAlign.center,
                       style: Theme.of(ctx).textTheme.titleMedium),
                   const SizedBox(height: 16),
+                  // Real scannable QR (the doctor can also type the code).
+                  CodeQr(code: code.code),
+                  const SizedBox(height: 12),
                   SelectableText(
                     code.code,
                     style: const TextStyle(
-                        fontSize: 32, letterSpacing: 4, fontWeight: FontWeight.w700),
+                        fontSize: 28, letterSpacing: 4, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text('Expires ${code.expiresAt.toString().substring(0, 16)}',

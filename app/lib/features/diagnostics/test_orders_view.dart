@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/code_qr.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/skeleton_loader.dart';
 import '../../shared/widgets/status_pill.dart';
@@ -188,9 +189,29 @@ class _OrderCard extends StatelessWidget {
               ],
             ),
             if (order.orderCode != null && order.status != 'report_ready') ...[
-              const SizedBox(height: 4),
-              Text('Order code: ${order.orderCode}',
-                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 8),
+              // Real scannable QR for the lab (the code stays typeable too).
+              Row(
+                children: [
+                  CodeQr(code: order.orderCode!, size: 96),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Show this at the lab / imaging centre',
+                            style: Theme.of(context).textTheme.bodySmall),
+                        const SizedBox(height: 4),
+                        SelectableText('Order code: ${order.orderCode}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
             for (final r in order.reports) ...[
               const Divider(),
