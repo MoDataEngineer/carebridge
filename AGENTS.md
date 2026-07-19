@@ -309,3 +309,41 @@ make them pass"). For multi-step work, state a brief plan with a verify check pe
 
 **Working if:** fewer unnecessary diffs, fewer rewrites from overcomplication, and
 clarifying questions come before implementation rather than after mistakes.
+
+## 14. Security review checklist (added 2026-07-19)
+
+> Every change touching auth, data access, storage, edge functions, migrations,
+> dependencies, or config must be reviewed against the six categories below
+> before merge. Baseline audit + full findings: `docs/SECURITY_REVIEW_2026-07-19.md`.
+> When a category doesn't apply to a change, say so — don't skip silently.
+
+1. **Injection** — No dynamic SQL built from input in RPCs (use parameters /
+   `quote_ident`). No path built from user input without sanitizing (storage keys,
+   file names). Patient free-text never reaches the AI summary — structured fields
+   only (Section 8).
+2. **Auth / access control** — Every access path enforced at the DB level via RLS,
+   not just app code (Section 7). Verify: doctor-scope isolation, admin AC-8
+   inherited visibility, Flow-C order-scoped grants, and that grants honour
+   `revoked_at` / `expires_at`. Scope claims come only from `scope_sessions` via the
+   access-token hook — never trust client-set claims. No credential column
+   (`pin_hash`) exposed by a table-wide `GRANT SELECT` — grant explicit columns.
+   New RPCs: confirm they can't be called cross-role for privilege escalation.
+3. **Secrets** — No secret value in code, migrations, or git (anon key client-side
+   is fine; service-role key is not). Never log or persist raw Aadhaar or OTP
+   (ID-6). `.env` stays gitignored. Rotate on pilot→prod.
+4. **Supply chain** — Commit lockfiles (`app/pubspec.lock`, `deno.lock`). Pin
+   edge-function imports to an exact version; prefer `npm:` over CDN rebundlers.
+   No new major dependency without asking (Section 12).
+5. **Data handling** — File uploads: size cap + extension/content-type allowlist +
+   server-derived path. Medical reports stay in a PRIVATE bucket served by
+   grant-gated signed URLs — never public. No caller-controlled URL fetched
+   server-side with a credential attached (SSRF). Validate redirects.
+6. **Infra / config** — No wildcard CORS on token-minting/auth functions. Rate-limit
+   every login / OTP / PIN path off a TRUSTED client IP. Public edge functions
+   (`verify_jwt=false`) must verify a request signature. Auth defaults fail closed
+   (e.g. `REQUIRE_OTP` defaults on). RLS enabled on every table; realtime
+   publications expose only self-scoped rows.
+
+**Before production (demo posture to flip):** see the "Demo / non-prod items" table
+in `docs/SECURITY_REVIEW_2026-07-19.md` — OTP enforcement, demo seed PINs, ABDM
+callback signature verification, secret rotation.

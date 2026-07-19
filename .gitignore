@@ -22,7 +22,9 @@ app/.packages
 app/build/
 app/.pub-cache/
 app/.pub/
-app/pubspec.lock
+# pubspec.lock IS committed on purpose (app, not a library): reproducible builds
+# + a pinned record so a compromised dependency point-release can't slip in
+# silently (security review 2026-07-19, H4).
 app/coverage/
 **/*.g.dart.lock
 

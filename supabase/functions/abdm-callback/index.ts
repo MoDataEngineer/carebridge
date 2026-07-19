@@ -18,14 +18,17 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ABDM callbacks: acknowledge asynchronously (202). Body logged until the
-  // real per-path handlers are implemented.
-  let body = "";
+  // ABDM callbacks: acknowledge asynchronously (202). We log method + path +
+  // body SIZE only — never the body itself: ABDM callbacks carry health
+  // identifiers / consent artefacts, and this is a public endpoint (security
+  // review 2026-07-19, H3/M5). When the real per-path handlers land here they
+  // MUST first verify ABDM's request signature before trusting any callback.
+  let size = 0;
   try {
-    body = await req.text();
+    size = (await req.text()).length;
   } catch {
     /* empty body is fine */
   }
-  console.log(`[abdm-callback] ${req.method} ${url.pathname} ${body.slice(0, 800)}`);
+  console.log(`[abdm-callback] ${req.method} ${url.pathname} (${size} bytes)`);
   return new Response("", { status: 202 });
 });

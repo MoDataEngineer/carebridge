@@ -1,5 +1,9 @@
 # Known issues / backlog
 
+> **Security:** a full-codebase security audit (2026-07-19) lives in
+> [`SECURITY_REVIEW_2026-07-19.md`](SECURITY_REVIEW_2026-07-19.md) — findings,
+> prioritized fix list, and the demo/non-prod items to flip before production.
+
 ## OPEN — QR code renders as raw text + patient details fail to load from copied code (2026-07-18)
 
 **Reported by founder during UI/UX modernization task (logged only — fix deliberately out of scope for that task).**

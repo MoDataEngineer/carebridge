@@ -35,11 +35,16 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 // single use); only the SMS SEND is provider-specific. MSG91 first:
 //   MSG91_AUTH_KEY + MSG91_TEMPLATE_ID  -> real SMS via the MSG91 flow API
 //   (absent)                            -> OTP off; demo login continues
-// REQUIRE_OTP=true makes a verified code mandatory (refuses demo/interim).
+// REQUIRE_OTP gates whether a verified code is mandatory. It FAILS CLOSED
+// (security review 2026-07-19, M1): default is "on" unless explicitly set to
+// "false". The pre-incorporation demo posture (phone-only login, no MSG91 yet)
+// stays available by setting REQUIRE_OTP=false in the function's secrets — but
+// a production deploy that simply forgets the env var now refuses passwordless
+// login instead of silently allowing it.
 const MSG91_AUTH_KEY = Deno.env.get("MSG91_AUTH_KEY") ?? "";
 const MSG91_TEMPLATE_ID = Deno.env.get("MSG91_TEMPLATE_ID") ?? "";
 const OTP_CONFIGURED = MSG91_AUTH_KEY !== "" && MSG91_TEMPLATE_ID !== "";
-const REQUIRE_OTP = (Deno.env.get("REQUIRE_OTP") ?? "false") === "true";
+const REQUIRE_OTP = (Deno.env.get("REQUIRE_OTP") ?? "true") !== "false";
 
 const sha256 = async (s: string) => {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));

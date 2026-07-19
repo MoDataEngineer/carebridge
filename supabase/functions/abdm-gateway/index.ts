@@ -340,20 +340,11 @@ Deno.serve(async (req) => {
       }, res.ok ? 200 : 502);
     }
 
-    // --- raw: probe an arbitrary path/method (onboarding diagnostics only) ---
-    if (action === "raw") {
-      const token = await getSessionToken();
-      const path = String(payload.path ?? "");
-      const method = String(payload.method ?? "GET");
-      const extra = (payload.extra_headers ?? {}) as Record<string, string>;
-      const res = await fetch(`${BASE}${path}`, {
-        method,
-        headers: { ...abdmHeaders(token), ...extra },
-        body: payload.body != null ? JSON.stringify(payload.body) : undefined,
-      });
-      const text = await res.text();
-      return json({ status: res.status, body: safeJson(text) });
-    }
+    // NOTE: a generic "raw" passthrough action existed here during M1 sandbox
+    // onboarding — it fetched a caller-supplied path with the live ABDM bearer
+    // token attached. Removed (security review 2026-07-19, H1): caller-controlled
+    // URL + attached credential = SSRF / token-exfiltration reachable by any
+    // authenticated user. Add a specific, named action instead of reviving it.
 
     return json({ error: "unknown_action", detail: action }, 400);
   } catch (e) {
