@@ -1,16 +1,38 @@
 import '../../../shared/models/enums.dart';
 
-/// One doctor as shown in the "Who are you?" picker.
+/// One doctor as shown in the "Who are you?" picker. The extra fields
+/// (council/HPR/phone/active) are only populated when the admin roster reads
+/// them for editing; the picker itself needs just id/name/specialty, so they
+/// default to null/true and cost nothing there.
 class DoctorSummary {
-  const DoctorSummary({required this.id, required this.name, required this.specialty});
+  const DoctorSummary({
+    required this.id,
+    required this.name,
+    required this.specialty,
+    this.councilRegNumber,
+    this.councilName,
+    this.hprId,
+    this.phone,
+    this.isActive = true,
+  });
   final String id;
   final String name;
   final String specialty;
+  final String? councilRegNumber;
+  final String? councilName;
+  final String? hprId;
+  final String? phone;
+  final bool isActive;
 
   factory DoctorSummary.fromMap(Map<String, dynamic> m) => DoctorSummary(
         id: m['id'] as String,
         name: m['name'] as String,
         specialty: (m['specialty'] ?? '') as String,
+        councilRegNumber: m['council_reg_number'] as String?,
+        councilName: m['council_name'] as String?,
+        hprId: m['hpr_id'] as String?,
+        phone: m['phone'] as String?,
+        isActive: (m['is_active'] ?? true) as bool,
       );
 }
 

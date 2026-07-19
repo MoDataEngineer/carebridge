@@ -37,7 +37,10 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
   }
 
   Future<void> _reload() async {
-    final docs = await ref.read(rosterRepositoryProvider).listDoctors();
+    // Admin roster shows deactivated doctors too (so they can be restored);
+    // the "Who are you?" picker still uses the active-only default elsewhere.
+    final docs =
+        await ref.read(rosterRepositoryProvider).listDoctors(includeInactive: true);
     if (mounted) setState(() => _docs = docs);
     final clinic = _clinicId;
     if (clinic == null) return;
@@ -80,20 +83,30 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
     }
   }
 
-  Future<void> _addDoctorDialog() async {
-    final name = TextEditingController();
-    final councilReg = TextEditingController();
-    final councilName = TextEditingController();
-    final specialty = TextEditingController();
+  /// Shared add/edit form. [existing] non-null → edit mode (fields pre-filled,
+  /// PIN optional = leave unchanged). Returns the entered values, or null if
+  /// cancelled. Kept as one form so add and edit never drift apart.
+  Future<_DoctorFormResult?> _doctorFormDialog({DoctorSummary? existing}) async {
+    final isEdit = existing != null;
+    final name = TextEditingController(text: existing?.name ?? '');
+    final councilReg = TextEditingController(text: existing?.councilRegNumber ?? '');
+    final councilName = TextEditingController(text: existing?.councilName ?? '');
+    final specialty = TextEditingController(text: existing?.specialty ?? '');
     final specialtyFocus = FocusNode();
-    final hpr = TextEditingController();
-    final phone = TextEditingController();
+    final hpr = TextEditingController(text: existing?.hprId ?? '');
+    // Phone is stored as +91XXXXXXXXXX; show just the local 10 digits (the '+91 '
+    // prefix is added back on save).
+    final phoneDigits = (existing?.phone ?? '').replaceAll(RegExp(r'\D'), '');
+    final phone = TextEditingController(
+        text: phoneDigits.length > 10
+            ? phoneDigits.substring(phoneDigits.length - 10)
+            : phoneDigits);
     final pin = TextEditingController();
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add doctor'),
+        title: Text(isEdit ? 'Edit doctor' : 'Add doctor'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -176,8 +189,10 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
                 keyboardType: TextInputType.number,
                 obscureText: true,
                 maxLength: 6,
-                decoration: const InputDecoration(
-                    labelText: 'Doctor PIN (4–6 digits)',
+                decoration: InputDecoration(
+                    labelText: isEdit
+                        ? 'Reset PIN (leave blank to keep current)'
+                        : 'Doctor PIN (4–6 digits)',
                     helperText: 'The doctor uses this to unlock their session'),
               ),
             ],
@@ -185,20 +200,44 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Add')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(isEdit ? 'Save' : 'Add')),
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true) return null;
+    final localPhone = phone.text.trim();
+    return _DoctorFormResult(
+      name: name.text,
+      councilRegNumber: councilReg.text,
+      councilName: councilName.text,
+      specialty: specialty.text,
+      hprId: hpr.text.trim().isEmpty ? null : hpr.text.trim(),
+      phone: localPhone.isEmpty ? null : '+91$localPhone',
+      pin: pin.text.trim().isEmpty ? null : pin.text.trim(),
+    );
+  }
+
+  Future<void> _addDoctorDialog() async {
+    final r = await _doctorFormDialog();
+    if (r == null) return;
+    if (r.pin == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('A PIN is required when adding a doctor.')));
+      }
+      return;
+    }
     try {
       final added = await ref.read(rosterRepositoryProvider).addDoctor(
-            name: name.text,
-            councilRegNumber: councilReg.text,
-            councilName: councilName.text,
-            specialty: specialty.text,
-            hprId: hpr.text.trim().isEmpty ? null : hpr.text.trim(),
-            pin: pin.text,
-            phone: phone.text.trim().isEmpty ? null : '+91${phone.text.trim()}',
+            name: r.name,
+            councilRegNumber: r.councilRegNumber,
+            councilName: r.councilName,
+            specialty: r.specialty,
+            hprId: r.hprId,
+            pin: r.pin!,
+            phone: r.phone,
           );
       // Keep the in-session roster in sync so the picker sees the new doctor.
       ref.read(clinicSessionControllerProvider.notifier).doctorAdded(added);
@@ -210,6 +249,71 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Could not add doctor: $e')));
+      }
+    }
+  }
+
+  Future<void> _editDoctorDialog(DoctorSummary doctor) async {
+    final r = await _doctorFormDialog(existing: doctor);
+    if (r == null) return;
+    try {
+      final updated = await ref.read(rosterRepositoryProvider).updateDoctor(
+            doctorId: doctor.id,
+            name: r.name,
+            councilRegNumber: r.councilRegNumber,
+            councilName: r.councilName,
+            specialty: r.specialty,
+            hprId: r.hprId,
+            phone: r.phone,
+            pin: r.pin,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${updated.name} updated')));
+      _reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not update doctor: $e')));
+      }
+    }
+  }
+
+  /// Deactivate (soft delete) or restore a doctor. Deactivation is confirmed —
+  /// it removes them from the picker/booking but preserves their visit history.
+  Future<void> _toggleActive(DoctorSummary doctor) async {
+    final deactivating = doctor.isActive;
+    if (deactivating) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Deactivate ${doctor.name}?'),
+          content: const Text(
+              'They will no longer appear for booking or the "Who are you?" '
+              'sign-in, but all their past visits and prescriptions are kept. '
+              'You can restore them any time.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Deactivate')),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+    try {
+      await ref
+          .read(rosterRepositoryProvider)
+          .setDoctorActive(doctor.id, !doctor.isActive);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(deactivating
+              ? '${doctor.name} deactivated'
+              : '${doctor.name} restored')));
+      _reload();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not update status: $e')));
       }
     }
   }
@@ -264,32 +368,109 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
               ),
             )
           else
-            for (final d in _docs!)
-              Card(
-                child: ListTile(
-                  // Doctor photo (uploadable; initials until one is set).
-                  leading: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => _uploadImage(doctorId: d.id),
-                    child: BrandAvatar(
-                        name: d.name, imageUrl: _branding.photos[d.id]),
-                  ),
-                  title: Text(d.name),
-                  subtitle: Text(d.specialty.isEmpty
-                      ? 'Tap the avatar to add a photo'
-                      : '${d.specialty} · tap the avatar to add a photo'),
-                  trailing: TextButton.icon(
-                    icon: const Icon(Icons.schedule, size: 18),
-                    label: const Text('Availability'),
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) =>
-                          AvailabilityScreen(doctorId: d.id, doctorName: d.name),
-                    )),
-                  ),
-                ),
-              ),
+            for (final d in _docs!) _doctorCard(d),
         ],
       ),
     );
   }
+
+  Widget _doctorCard(DoctorSummary d) {
+    final inactive = !d.isActive;
+    final subtitle = d.specialty.isEmpty
+        ? 'Tap the avatar to add a photo'
+        : '${d.specialty} · tap the avatar to add a photo';
+    return Card(
+      // Deactivated doctors read as muted so the roster shows status at a glance.
+      color: inactive
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
+          : null,
+      child: Opacity(
+        opacity: inactive ? 0.6 : 1,
+        child: ListTile(
+          // Doctor photo (uploadable; initials until one is set). Disabled while
+          // deactivated — restore first to edit branding.
+          leading: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: inactive ? null : () => _uploadImage(doctorId: d.id),
+            child: BrandAvatar(name: d.name, imageUrl: _branding.photos[d.id]),
+          ),
+          title: Row(
+            children: [
+              Flexible(child: Text(d.name)),
+              if (inactive) ...[
+                const SizedBox(width: 8),
+                _pill(context, 'Deactivated'),
+              ],
+            ],
+          ),
+          subtitle: Text(inactive ? 'Not shown for booking or sign-in' : subtitle),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!inactive)
+                IconButton(
+                  tooltip: 'Availability',
+                  icon: const Icon(Icons.schedule),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) =>
+                        AvailabilityScreen(doctorId: d.id, doctorName: d.name),
+                  )),
+                ),
+              PopupMenuButton<String>(
+                tooltip: 'Doctor options',
+                onSelected: (v) {
+                  if (v == 'edit') _editDoctorDialog(d);
+                  if (v == 'toggle') _toggleActive(d);
+                },
+                itemBuilder: (_) => [
+                  if (!inactive)
+                    const PopupMenuItem(value: 'edit', child: Text('Edit details')),
+                  PopupMenuItem(
+                    value: 'toggle',
+                    child: Text(inactive ? 'Restore doctor' : 'Deactivate'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pill(BuildContext context, String label) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label,
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall
+              ?.copyWith(color: scheme.onErrorContainer)),
+    );
+  }
+}
+
+/// Values captured by the shared add/edit doctor form.
+class _DoctorFormResult {
+  const _DoctorFormResult({
+    required this.name,
+    required this.councilRegNumber,
+    required this.councilName,
+    required this.specialty,
+    required this.hprId,
+    required this.phone,
+    required this.pin,
+  });
+  final String name;
+  final String councilRegNumber;
+  final String councilName;
+  final String specialty;
+  final String? hprId;
+  final String? phone;
+  final String? pin;
 }
