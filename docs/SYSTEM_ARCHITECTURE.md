@@ -148,3 +148,36 @@ badges — blocked on the founder's ABDM sandbox application), partner
 lab-registry auth, payment gateway (Section 9 stub), in-app PDF renderer
 (signed-URL link today), Android emulator / iOS TestFlight builds.
 Risk-register H1/H2 interim mitigations stand until REQUIRE_OTP is on.
+
+## 8. Update 2026-07-19 — appointments, partner auth, ABDM M1, branding, reskin
+
+- **Session booking pipeline**: doctor sets weekly `doctor_sessions` (per-day
+  windows + capacity; self-service via the calendar icon on Appointments, or
+  admin roster). Patient books a session → within capacity auto-confirms,
+  overflow becomes a `requested` row the doctor approves/declines (with reason,
+  patient notified). Clinic dashboard = today + future, grouped by day, shows
+  patient phone. Live queue: check-in/call-next enqueue realtime notifications;
+  patient sees a gradient tracker card + bell badge + arrival chime (Web Audio
+  on web / SystemSound elsewhere — no plugin).
+- **Diagnostic partner auth is real** (was open): registration number + PIN →
+  GoTrue session bound to `diagnostic_partners.auth_user_id`, which all Flow-C
+  RLS keys on. Registration in-app, starts `verified=false`.
+- **ABDM Milestone 1 complete on sandbox** (client SBXID_052411): the
+  `abdm-gateway` edge function holds the credentials and does gateway session
+  auth, RSA-OAEP/SHA-1 encryption against the ABHA cert, create-by-Aadhaar
+  (request/otp → enrol/byAadhaar) and verify/login (login/request/otp →
+  verify → profile/account + abha-card PNG). Verified live end-to-end with a
+  real ABHA. Patient-app UI: Create/Verify ABHA in Profile. Bridge/HIP APIs
+  parked (wrong track for a PHR app).
+- **Branding**: doctor photo + clinic logo upload (roster screen) via the
+  `branding-upload` edge function (service-role storage write, scope-checked
+  in-function — client-side storage RLS 403s on this project, do not use).
+  Shown on booking cards, confirmation sheet, queue header; initials fallback.
+- **UI reskin (mint/teal, pass 1)**: mint canvas + white r20 cards,
+  Figtree/Noto (google_fonts), pill chips, floating pill bottom nav, painted
+  Ayulekha logo, slot-chip booking + green-check confirmation sheet,
+  `AppVitalStyles`/`VitalTile` medical-data hierarchy. Theme-level, §7 logic
+  untouched. Further polish deliberately deferred.
+- **Known issues / backlog** now tracked in `docs/KNOWN_ISSUES.md` (QR raw-text
+  + consent-code claim report, roster edit/deactivate, PDF viewer, no-show
+  reminders, founder verification screen).

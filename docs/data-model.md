@@ -38,3 +38,19 @@ claim-reader helpers `current_clinic_id()`, `current_active_role()`,
 - **Phase 2** — doctor-scoped vs admin-scoped read/write; AC-9 write gating.
 - **Phase 5** — AC-8 admin inherited visibility + Flow A/B grant checks.
 - **Phase 6** — AC-10 order-scoped diagnostic grants (Flow C) + matching Storage policies.
+
+## Update 2026-07-19 (migrations 0024–0030)
+
+| Table / object | Change | Migration |
+|---|---|---|
+| `doctor_sessions` | NEW — weekly availability: `doctor_id`, `day_of_week` (0=Sun), `label`, `start_time`, `end_time`, `capacity`, `is_active`. Patients book INTO a session. | 0025 |
+| `appointments.session_id` | NEW FK → doctor_sessions. Booking within capacity → `scheduled`; overflow → `requested` (doctor approves/declines). One ACTIVE booking per patient/session/day (dedupe). | 0026, 0029 |
+| `notifications` | Added to the `supabase_realtime` publication (live bell badge + chime); queue events (`checked_in`, `your_turn`, `appointment_approved`, `appointment_rejected`) enqueued server-side. | 0024, 0027 |
+| `diagnostic_partners` | NEW `phone`, `pin_hash`, `verified` — real flat login (reg number + PIN, bcrypt + lockout via the `partner` identity type). GoTrue password in Vault (`partner_password:<id>`). | 0028 |
+| `doctors.photo_url`, `clinics.logo_url` | NEW — branding. Public `branding` storage bucket; `carebridge_bookable_doctors` returns both; `carebridge_set_branding(doctor,url)` RPC. Uploads go through the `branding-upload` edge function (service role) — client-side storage RLS is unreliable on this project (403 even under permissive policies). | 0030 |
+
+Key RPCs added: `carebridge_now_serving`, `carebridge_set_doctor_sessions`,
+`carebridge_available_sessions`, `carebridge_request_appointment`,
+`carebridge_upcoming_appointments` (returns `patient_phone`),
+`carebridge_approve_appointment`, `carebridge_reject_appointment`,
+`carebridge_set_branding`.
