@@ -33,7 +33,23 @@
 
 **M6 verification:** `flutter build web --release` succeeds with runtime fetching off and all 8 TTFs present in `build/web/assets/assets/google_fonts/`. Runtime proof (load offline → no `fonts.gstatic.com` request in the Network tab) to confirm in-browser.
 
-Still open: all Lows (L1–L6); demo/before-prod items in §3. Note: `branding-upload` still uses `*` CORS — left intentionally (returns only a public URL, no token/PII — low stakes). All six Medium findings (M1–M7) are now resolved.
+### Fix log — pass 4 (Lows, applied 2026-07-19)
+| Ref | Fix | Change |
+|-----|-----|--------|
+| L1 | `carebridge_log_view` now refuses to write an access-log row unless `current_scope_can_view_patient()` passes — no more forged audit entries for arbitrary patients | `migrations/0032_consent_low_findings.sql` |
+| L2 | `scope` (PIN-verify) action added to the per-IP rate limiter | `mint-scope-token/index.ts` |
+| L4 | CSP + `X-Content-Type-Options` meta added to the web shell (`frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, scripts/connect restricted). **Verified in-browser: app mounts, 0 CSP violations** | `app/web/index.html` |
+| L5 | Partner-supplied `structured_values` deep-clipped (string leaves capped, breadth/depth bounded, oversized blob dropped) before reaching the AI prompt | `ai-summary/index.ts` |
+| L6 | `carebridge_request_access` sends the patient notification only when a NEW pending request is created — repeat calls no longer spam | `migrations/0032_consent_low_findings.sql` |
+| L3 | **Accepted, no change** — `branding` bucket is public-read but holds only non-PHI logos/photos. Revisit (private + signed URLs) only if hotlinking/enumeration becomes a concern | — |
+
+**⚠ BUILD-FLAG REQUIREMENT (from L4):** the committed CSP forbids off-origin script/wasm, and Flutter otherwise (a) generates code dynamically and (b) fetches CanvasKit from `gstatic.com`. Web builds **must** therefore use:
+```
+flutter build web --release --csp --no-web-resources-cdn
+```
+`--csp` produces a CSP-safe bundle; `--no-web-resources-cdn` loads CanvasKit from the app's own bundle (also removes that CDN dependency). A plain `flutter build web --release` will render a **blank screen** under this CSP. (The engine's Roboto fallback still tries gstatic and is harmlessly blocked — bundled Noto Sans/Figtree render all text.)
+
+Still open: demo/before-prod items in §3. Note: `branding-upload` still uses `*` CORS — left intentionally (returns only a public URL, no token/PII — low stakes). **All six Mediums (M1–M7) and all actionable Lows (L1, L2, L4, L5, L6) are now resolved; L3 accepted.**
 
 > Authority for "intended behavior" is `CLAUDE.md` Section 7 (consent/access-grant model) and Section 2 (session scoping). Demo/non-prod posture is per the `founder-prelaunch-sequencing` decision (no company yet; DLT/ABDM/OTP deferred until incorporation).
 

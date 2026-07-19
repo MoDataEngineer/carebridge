@@ -42,7 +42,10 @@ app/ios/
 app/linux/
 app/macos/
 app/windows/
-app/web/
+app/web/*
+# …except index.html — it carries the committed Content-Security-Policy (L4).
+# Losing it to a `flutter create` regen would silently drop the CSP.
+!app/web/index.html
 
 # OS noise
 .DS_Store

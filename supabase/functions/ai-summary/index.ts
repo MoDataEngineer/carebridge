@@ -116,9 +116,29 @@ Deno.serve(async (req) => {
       rx.dosage = clip(rx.dosage, 60);
     }
   }
+  // L5: structured_values is uploaded by a DIAGNOSTIC PARTNER (less trusted than
+  // the clinic), so bound it before it reaches the prompt: clip every string
+  // leaf, cap array/object breadth, and drop the whole blob if it's still
+  // oversized. The strict system prompt does the rest.
+  const clipJson = (val: unknown, depth = 0): unknown => {
+    if (typeof val === "string") return clip(val, 200);
+    if (depth > 4) return null;
+    if (Array.isArray(val)) return val.slice(0, 50).map((x) => clipJson(x, depth + 1));
+    if (val && typeof val === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(val).slice(0, 50)) {
+        out[clip(k, 80) as string] = clipJson(v, depth + 1);
+      }
+      return out;
+    }
+    return val; // numbers / booleans / null pass through
+  };
   for (const t of input.tests ?? []) {
     t.test_name = clip(t.test_name, 120);
     t.test_type = clip(t.test_type, 60);
+    let sv = clipJson(t.structured_values);
+    if (JSON.stringify(sv ?? null).length > 3000) sv = { note: "values truncated" };
+    t.structured_values = sv;
   }
 
   const fingerprint = await sha256(JSON.stringify(input));

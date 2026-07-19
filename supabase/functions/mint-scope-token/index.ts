@@ -144,9 +144,12 @@ Deno.serve(async (req) => {
 
   // Audit M3: per-IP rolling-window rate limit on login/register (the
   // unauthenticated actions). 20 attempts / 10 minutes per IP per action.
+  // L2: `scope` is included too — it verifies a PIN, so it's a credential-
+  // guessing surface (the per-identity 5-strike lockout already applies on top).
   if (payload.action === "login" || payload.action === "register" ||
       payload.action === "patient_login" || payload.action === "send_otp" ||
-      payload.action === "partner_login" || payload.action === "partner_register") {
+      payload.action === "partner_login" || payload.action === "partner_register" ||
+      payload.action === "scope") {
     const ip = clientIp(req);
     const { data: allowed, error: rateErr } = await admin.rpc("carebridge_rate_ok", {
       p_key: `${payload.action}:${ip}`,
