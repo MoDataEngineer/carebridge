@@ -29,6 +29,12 @@ dependencies:
   qr_flutter: ^4.1.0
   image_picker: ^1.2.3
   google_fonts: ^8.2.0
+  # In-app report PDF viewer: pdfx (native pdfium) on mobile/desktop; on web we
+  # use a native <iframe> instead (report_pdf_view_web.dart), so `web` gives us
+  # the typed HTMLIFrameElement. pdfx web (pdf.js from CDN) is intentionally
+  # unused — it conflicts with the app CSP (L4).
+  pdfx: ^2.9.2
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

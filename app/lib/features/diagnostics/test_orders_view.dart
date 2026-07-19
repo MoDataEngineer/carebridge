@@ -9,6 +9,7 @@ import '../../shared/widgets/status_pill.dart';
 import '../../shared/widgets/vital_tile.dart';
 import 'diagnostics_models.dart';
 import 'diagnostics_repository.dart';
+import 'report_pdf_view.dart';
 
 /// Shared "Tests" view (Section 5.1 patient + 5.2 doctor Tests tab): lists a
 /// patient's test orders with status and any uploaded reports, viewed in-app.
@@ -331,11 +332,30 @@ class _ReportViewState extends ConsumerState<_ReportView> {
                       errorBuilder: (_, e, __) => Text('Could not load image: $e')),
                 );
               }
-              // PDF: show the 1-hour link (in-app PDF renderer is a later pass).
+              // PDF: render inline in-app — a native <iframe> on web, pdfx on
+              // mobile (see report_pdf_view.dart). Bounded height with a border
+              // so it sits naturally inside the scrolling order list.
               return Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: SelectableText('Open this link to view the PDF (valid 1 hour):\n$url',
-                    style: Theme.of(context).textTheme.bodySmall),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    height: 480,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: Theme.of(context).dividerColor),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ReportPdfView(
+                        signedUrl: url,
+                        loadBytes: () => ref
+                            .read(diagnosticsRepositoryProvider)
+                            .reportBytes(path),
+                      ),
+                    ),
+                  ),
+                ),
               );
             },
           ),

@@ -98,6 +98,9 @@ class _FakeDiagnosticsRepo implements DiagnosticsRepository {
 
   @override
   Future<String> signedUrl(String path) async => 'https://signed.example/$path';
+
+  @override
+  Future<Uint8List> reportBytes(String path) async => Uint8List(0);
 }
 
 Widget _harness(_FakeDiagnosticsRepo repo, Widget child) => ProviderScope(

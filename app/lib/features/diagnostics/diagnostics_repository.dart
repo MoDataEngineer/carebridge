@@ -61,8 +61,12 @@ abstract class DiagnosticsRepository {
 
   /// Short-lived signed URL for a stored report file. Creating it requires
   /// passing the storage SELECT policies, so an unauthorized viewer cannot
-  /// obtain a link at all.
+  /// obtain a link at all. Used to embed a PDF inline on web (native <iframe>).
   Future<String> signedUrl(String path);
+
+  /// Raw bytes of a stored report file, for the in-app PDF renderer on mobile
+  /// (pdfx). Rides the same storage SELECT policies as [signedUrl].
+  Future<Uint8List> reportBytes(String path);
 }
 
 class SupabaseDiagnosticsRepository implements DiagnosticsRepository {
@@ -154,6 +158,10 @@ class SupabaseDiagnosticsRepository implements DiagnosticsRepository {
   @override
   Future<String> signedUrl(String path) =>
       _client.storage.from('reports').createSignedUrl(path, 3600);
+
+  @override
+  Future<Uint8List> reportBytes(String path) =>
+      _client.storage.from('reports').download(path);
 }
 
 final diagnosticsRepositoryProvider = Provider<DiagnosticsRepository>((ref) {

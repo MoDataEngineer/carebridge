@@ -26,8 +26,10 @@ Two separate causes, both addressed:
    no case-sensitivity issue.
 
 ## Backlog (pre-ship, from 2026-07-18 audit)
-- Doctor roster: edit + deactivate (spec §5.2) — only "add" exists.
-- In-app PDF viewer for uploaded reports (images/structured already render).
+- ~~Doctor roster: edit + deactivate (spec §5.2)~~ — DONE (commit 2927fe4).
+- ~~In-app PDF viewer for uploaded reports~~ — DONE: pdfx on mobile, native
+  <iframe> on web (report_pdf_view*.dart). pdfx's own web renderer (pdf.js via
+  CDN) is intentionally unused — it conflicts with the L4 CSP.
 - No-show / follow-up automated reminders (paid tier).
 - Founder verification screen for new hospitals/labs (today: Supabase dashboard).
 - Camera-based QR scanning on doctor/lab side (codes are typeable meanwhile).
