@@ -23,7 +23,7 @@
 //
 // DEPLOY: supabase functions deploy mint-scope-token
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -68,16 +68,26 @@ async function otpValid(admin: any, phone10: string, code: unknown): Promise<boo
   return true;
 }
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
-};
+// M3: this endpoint mints session tokens, so it must NOT answer every origin.
+// Only echo Access-Control-Allow-Origin for an allowlisted app origin — a
+// random site in a victim's browser then can't read the token JSON. Non-browser
+// clients (the Flutter mobile app) send no Origin header, so they're unaffected.
+// Configure prod/staging web origins via the ALLOWED_ORIGINS secret (comma-sep).
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ??
+  "http://localhost:5000,http://127.0.0.1:5000")
+  .split(",").map((s) => s.trim()).filter(Boolean);
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS },
-  });
+const corsFor = (origin: string | null) => {
+  const h: Record<string, string> = {
+    "Access-Control-Allow-Headers":
+      "authorization, content-type, apikey, x-client-info",
+    "Vary": "Origin",
+  };
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    h["Access-Control-Allow-Origin"] = origin;
+  }
+  return h;
+};
 
 // Derived, stable login email for a clinic's GoTrue user. Internal only — clinics
 // never see or use it; the real human-facing login is reg-number + phone/OTP.
@@ -94,8 +104,31 @@ const randomSecret = () =>
 const normPhone = (p: unknown) =>
   String(p ?? "").replace(/\D/g, "").slice(-10);
 
+// M2: the rate-limit key must come from an IP the caller can't forge. A client
+// can set `x-forwarded-for` to anything, so the FIRST token is untrusted; the
+// gateway sets `x-real-ip` to the actual peer, and appends the real client IP
+// as the LAST entry of `x-forwarded-for`. Prefer x-real-ip, else the last XFF
+// hop — never the client-supplied first token.
+const clientIp = (req: Request): string => {
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+  return "unknown";
+};
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const cors = corsFor(req.headers.get("origin"));
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json", ...cors },
+    });
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   let payload: Record<string, unknown>;
@@ -114,7 +147,7 @@ Deno.serve(async (req) => {
   if (payload.action === "login" || payload.action === "register" ||
       payload.action === "patient_login" || payload.action === "send_otp" ||
       payload.action === "partner_login" || payload.action === "partner_register") {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const ip = clientIp(req);
     const { data: allowed, error: rateErr } = await admin.rpc("carebridge_rate_ok", {
       p_key: `${payload.action}:${ip}`,
       p_max: 20,

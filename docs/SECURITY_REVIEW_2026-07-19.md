@@ -16,7 +16,20 @@
 
 **⚠ Deploy note (M1):** the demo Supabase project must have `REQUIRE_OTP=false` set in the `mint-scope-token` function secrets **before** these changes deploy, or the demo phone-only logins will stop working. To deploy: `supabase db push` (migration 0031) + `supabase functions deploy abdm-gateway abdm-callback mint-scope-token`.
 
-Still open: M2, M3, M6, M7, and all Lows (next batch); demo/before-prod items in §3.
+### Fix log — pass 2 (applied 2026-07-19, not yet deployed)
+| Ref | Fix | Change |
+|-----|-----|--------|
+| M2 | Rate-limit key now uses a trusted client IP (`x-real-ip`, else the LAST `x-forwarded-for` hop) instead of the spoofable first token | `mint-scope-token/index.ts` (`clientIp` helper) |
+| M3 | Token endpoint no longer answers `Access-Control-Allow-Origin: *` — echoes only an allowlisted origin (`ALLOWED_ORIGINS` secret; defaults to localhost:5000). Non-browser clients unaffected | `mint-scope-token/index.ts` (`corsFor`) |
+| M7 (partial) | Removed the two `esm.sh` CDN rebundler imports → `npm:@supabase/supabase-js@2` (all four functions now consistent) | `mint-scope-token`, `branding-upload` |
+
+**⚠ Deploy note (M3):** set `ALLOWED_ORIGINS` (comma-separated web origins, e.g. the deployed app URL) in the `mint-scope-token` secrets before prod; the built-in default only covers `localhost:5000`.
+
+**M6 — DEFERRED (needs offline asset commit):** `google_fonts` still runtime-fetches. Completing it safely requires committing the static TTFs *then* disabling runtime fetch — flipping the switch without bundled fonts breaks all text. This environment has no outbound network to fetch the binaries. To finish: (1) download static weights — Figtree Regular/Medium/SemiBold/Bold/ExtraBold + Noto Sans Regular/Medium/Bold — into `app/assets/google_fonts/`; (2) add that folder to `app/pubspec.yaml` `flutter: assets:`; (3) add `GoogleFonts.config.allowRuntimeFetching = false;` in `main()`; (4) `flutter build web --release` and confirm text renders offline with no request to `fonts.gstatic.com`.
+
+**M7 — remaining half:** commit a `deno.lock` (needs the Supabase/Deno CLI + network to generate) and optionally pin to an exact `@2.x` patch.
+
+Still open: M6 (deferred, above), M7-lock, and all Lows; demo/before-prod items in §3. Note: `branding-upload` still uses `*` CORS — left intentionally (returns only a public URL, no token/PII — low stakes).
 
 > Authority for "intended behavior" is `CLAUDE.md` Section 7 (consent/access-grant model) and Section 2 (session scoping). Demo/non-prod posture is per the `founder-prelaunch-sequencing` decision (no company yet; DLT/ABDM/OTP deferred until incorporation).
 
