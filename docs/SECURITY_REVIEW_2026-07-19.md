@@ -25,11 +25,15 @@
 
 **⚠ Deploy note (M3):** set `ALLOWED_ORIGINS` (comma-separated web origins, e.g. the deployed app URL) in the `mint-scope-token` secrets before prod; the built-in default only covers `localhost:5000`.
 
-**M6 — DEFERRED (needs offline asset commit):** `google_fonts` still runtime-fetches. Completing it safely requires committing the static TTFs *then* disabling runtime fetch — flipping the switch without bundled fonts breaks all text. This environment has no outbound network to fetch the binaries. To finish: (1) download static weights — Figtree Regular/Medium/SemiBold/Bold/ExtraBold + Noto Sans Regular/Medium/Bold — into `app/assets/google_fonts/`; (2) add that folder to `app/pubspec.yaml` `flutter: assets:`; (3) add `GoogleFonts.config.allowRuntimeFetching = false;` in `main()`; (4) `flutter build web --release` and confirm text renders offline with no request to `fonts.gstatic.com`.
+### Fix log — pass 3 (applied 2026-07-19)
+| Ref | Fix | Change |
+|-----|-----|--------|
+| M6 | 8 static font weights (Figtree R/M/SemiBold/Bold/ExtraBold + Noto Sans R/M/Bold) bundled under `app/assets/google_fonts/`; `GoogleFonts.config.allowRuntimeFetching = false` in `main()` — no runtime `fonts.gstatic.com` fetch | `app/pubspec.yaml`, `app/lib/main.dart`, `app/assets/google_fonts/*` |
+| M7 | Committed `supabase/functions/deno.lock` (integrity hashes; resolved supabase-js 2.110.7). `@2` + lockfile = reproducible; the CDN rebundler is already gone (pass 2) | `supabase/functions/deno.lock` |
 
-**M7 — remaining half:** commit a `deno.lock` (needs the Supabase/Deno CLI + network to generate) and optionally pin to an exact `@2.x` patch.
+**M6 verification:** `flutter build web --release` succeeds with runtime fetching off and all 8 TTFs present in `build/web/assets/assets/google_fonts/`. Runtime proof (load offline → no `fonts.gstatic.com` request in the Network tab) to confirm in-browser.
 
-Still open: M6 (deferred, above), M7-lock, and all Lows; demo/before-prod items in §3. Note: `branding-upload` still uses `*` CORS — left intentionally (returns only a public URL, no token/PII — low stakes).
+Still open: all Lows (L1–L6); demo/before-prod items in §3. Note: `branding-upload` still uses `*` CORS — left intentionally (returns only a public URL, no token/PII — low stakes). All six Medium findings (M1–M7) are now resolved.
 
 > Authority for "intended behavior" is `CLAUDE.md` Section 7 (consent/access-grant model) and Section 2 (session scoping). Demo/non-prod posture is per the `founder-prelaunch-sequencing` decision (no company yet; DLT/ABDM/OTP deferred until incorporation).
 

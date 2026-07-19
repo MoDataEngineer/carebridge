@@ -45,3 +45,9 @@ flutter:
     # .env.example. The committed .env.example stays as a reference/fallback.
     - .env
     - .env.example
+    # Bundled font files (security review M6): with runtime fetching disabled in
+    # main(), google_fonts loads these from the bundle instead of fetching from
+    # fonts.gstatic.com at startup. Filenames must match the family+weight names
+    # google_fonts expects (Figtree Regular/Medium/SemiBold/Bold/ExtraBold, Noto
+    # Sans Regular/Medium/Bold). Add the matching weight file before using a new one.
+    - assets/google_fonts/

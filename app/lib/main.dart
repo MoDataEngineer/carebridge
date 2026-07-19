@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/supabase_client.dart';
@@ -10,6 +11,12 @@ import 'core/theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Security review M6: never fetch fonts from fonts.gstatic.com at runtime.
+  // The Figtree + Noto Sans weights we use are bundled under
+  // assets/google_fonts/ (declared in pubspec) — a health app shouldn't make a
+  // per-client call to a third-party CDN just to render text.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Load env flags. In Phase 1 the real `.env` may be absent — fall back to the
   // committed `.env.example` so the placeholder app still boots.
