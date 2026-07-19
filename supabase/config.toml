@@ -37,3 +37,8 @@ verify_jwt = true
 # The HTTPS host ABDM's gateway calls back on. PUBLIC — ABDM has no Supabase JWT.
 [functions.abdm-callback]
 verify_jwt = false
+
+# Doctor photo / clinic logo upload (service-role storage write, scope-checked
+# in-function — see 0030 notes on why client-side storage RLS is bypassed).
+[functions.branding-upload]
+verify_jwt = true

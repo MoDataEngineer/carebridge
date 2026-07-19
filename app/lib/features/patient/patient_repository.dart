@@ -149,6 +149,8 @@ class SupabasePatientRepository implements PatientRepository {
               hprVerified: m['hpr_verified'] == true,
               city: (m['city'] ?? '') as String,
               state: (m['state'] ?? '') as String,
+              photoUrl: m['photo_url'] as String?,
+              logoUrl: m['logo_url'] as String?,
             ))
         .toList();
   }

@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
+import '../../shared/widgets/brand_avatar.dart';
 import 'patient_models.dart';
 import 'patient_repository.dart';
 
@@ -21,6 +24,7 @@ class BookAppointmentTab extends ConsumerStatefulWidget {
 class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
   late Future<List<BookableDoctor>> _doctors;
   Map<String, String> _doctorNames = const {}; // doctorId -> name (for tracker)
+  Map<String, BookableDoctor> _docsById = const {}; // branding for tracker/confirm
 
   List<AppointmentRecord> _appts = const [];
   bool _apptsLoading = true;
@@ -48,8 +52,10 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
     _doctors = repo.bookableDoctors();
     _doctors.then((list) {
       if (mounted) {
-        setState(() =>
-            _doctorNames = {for (final d in list) d.doctorId: d.doctorName});
+        setState(() {
+          _doctorNames = {for (final d in list) d.doctorId: d.doctorName};
+          _docsById = {for (final d in list) d.doctorId: d};
+        });
       }
     }).catchError((_) {});
     _loadAppts();
@@ -131,28 +137,107 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
           .showSnackBar(const SnackBar(content: Text('Pick a session first')));
       return;
     }
+    final doc = _selected;
     setState(() => _booking = true);
+    BookingResult? result;
     try {
-      final result =
+      result =
           await ref.read(patientRepositoryProvider).requestAppointment(sid, _when);
       if (!mounted) return;
       await _loadAppts();
       await _loadSessions();
-      if (mounted) {
-        setState(() => _selectedSessionId = null);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(result.confirmed
-              ? 'Appointment confirmed.'
-              : 'This session is fully booked — your request was sent; the doctor may still approve it.'),
-        ));
-      }
+      if (mounted) setState(() => _selectedSessionId = null);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Booking failed: $e')));
       }
     } finally {
+      // Clear the busy state BEFORE any confirmation dialog — otherwise the
+      // button's spinner keeps animating behind the modal.
       if (mounted) setState(() => _booking = false);
+    }
+
+    if (!mounted || result == null) return;
+    if (result.confirmed && doc != null) {
+      // Booking-confirmed moment (reskin, reference #3): a bottom sheet with a
+      // green check disc, doctor photo + hospital logo (branding spec) and the
+      // scheduled details — instead of a passing snackbar.
+      final green = AppStatusColors.of(context).success;
+      await showModalBottomSheet<void>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: green.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.check_rounded, size: 36, color: green),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text('Booking confirmed',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(ctx).textTheme.titleLarge),
+                Text('Your appointment has been scheduled.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(ctx).textTheme.bodySmall),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    BrandAvatar(
+                        name: doc.doctorName, imageUrl: doc.photoUrl, radius: 26),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(doc.doctorName,
+                              style: Theme.of(ctx).textTheme.titleMedium),
+                          Text(doc.clinicName,
+                              style: Theme.of(ctx).textTheme.bodySmall),
+                        ],
+                      ),
+                    ),
+                    BrandAvatar(
+                        name: doc.clinicName,
+                        imageUrl: doc.logoUrl,
+                        radius: 18,
+                        square: true),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.event, size: 18),
+                    const SizedBox(width: 8),
+                    Text(_when.toString().substring(0, 10)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Done')),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.confirmed
+            ? 'Appointment confirmed.'
+            : 'This session is fully booked — your request was sent; the doctor may still approve it.'),
+      ));
     }
   }
 
@@ -175,30 +260,60 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
       );
     }
     final scheme = Theme.of(context).colorScheme;
+    // Slot chips (reskin, reference #3): tappable pills instead of list rows.
+    // Full sessions stay selectable — overflow becomes a request (founder rule).
+    AvailableSession? selected;
+    for (final s in sessions) {
+      if (s.sessionId == _selectedSessionId) selected = s;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 12),
+        Text('Choose a session', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
-        Text('Choose a session', style: Theme.of(context).textTheme.labelLarge),
-        for (final s in sessions)
-          Card(
-            color: _selectedSessionId == s.sessionId ? scheme.primaryContainer : null,
-            child: ListTile(
-              leading: Icon(s.full ? Icons.event_busy : Icons.event_available,
-                  color: s.full ? scheme.error : scheme.primary),
-              title: Text('${s.label ?? 'Session'} · ${s.window}'),
-              subtitle: Text(
-                s.full
-                    ? 'Fully booked — the doctor may still approve your request'
-                    : '${s.remaining} of ${s.capacity} slots left',
-                style: TextStyle(color: s.full ? scheme.error : null),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final s in sessions)
+              ChoiceChip(
+                selected: _selectedSessionId == s.sessionId,
+                onSelected: (_) =>
+                    setState(() => _selectedSessionId = s.sessionId),
+                avatar: _selectedSessionId == s.sessionId
+                    ? null
+                    : Icon(
+                        s.full ? Icons.hourglass_bottom : Icons.schedule,
+                        size: 16,
+                        color: s.full ? scheme.error : scheme.primary,
+                      ),
+                label: Text('${s.label ?? 'Session'} · ${s.window}'),
               ),
-              trailing: _selectedSessionId == s.sessionId
-                  ? const Icon(Icons.check_circle)
-                  : null,
-              onTap: () => setState(() => _selectedSessionId = s.sessionId),
-            ),
+          ],
+        ),
+        if (selected != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                selected.full ? Icons.info_outline : Icons.event_available,
+                size: 16,
+                color: selected.full ? scheme.error : scheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  selected.full
+                      ? 'Fully booked — the doctor may still approve your request'
+                      : '${selected.remaining} of ${selected.capacity} slots left',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: selected.full ? scheme.error : null),
+                ),
+              ),
+            ],
           ),
+        ],
       ],
     );
   }
@@ -222,6 +337,7 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
             appt: active,
             nowServing: _nowServing,
             doctorName: _doctorNames[active.doctorId],
+            photoUrl: _docsById[active.doctorId]?.photoUrl,
           ),
           const SizedBox(height: 16),
         ],
@@ -366,11 +482,10 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
                   const SizedBox(height: 8),
                   Card(
                     child: ListTile(
-                      dense: true,
-                      leading: Icon(
-                        _selected!.hprVerified ? Icons.verified : Icons.badge_outlined,
-                        color: _selected!.hprVerified ? Colors.blue : null,
-                      ),
+                      // Doctor photo (or initials) — branding, 0030.
+                      leading: BrandAvatar(
+                          name: _selected!.doctorName,
+                          imageUrl: _selected!.photoUrl),
                       title: Text(_selected!.councilRegNumber.isEmpty
                           ? 'License details not provided'
                           : 'Reg. no ${_selected!.councilRegNumber}'
@@ -378,6 +493,11 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
                       subtitle: Text(_selected!.hprVerified
                           ? 'Verified in the national Health Professional Registry'
                           : 'Registered medical practitioner'),
+                      trailing: BrandAvatar(
+                          name: _selected!.clinicName,
+                          imageUrl: _selected!.logoUrl,
+                          radius: 18,
+                          square: true),
                     ),
                   ),
                 ],
@@ -439,14 +559,15 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
 /// Prominent live card shown while the patient is in today's queue — updates in
 /// real time via Realtime + a short poll for the "ahead of you" count.
 class _QueueTracker extends StatelessWidget {
-  const _QueueTracker({required this.appt, this.nowServing, this.doctorName});
+  const _QueueTracker(
+      {required this.appt, this.nowServing, this.doctorName, this.photoUrl});
   final AppointmentRecord appt;
   final NowServing? nowServing;
   final String? doctorName;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final inConsult = appt.status == 'in_consultation';
     final ahead = nowServing?.aheadOf(appt.queuePosition);
 
@@ -461,45 +582,77 @@ class _QueueTracker extends StatelessWidget {
       subtitle = 'Checked in — waiting for the doctor to start.';
     }
 
-    return Card(
-      color: inConsult ? scheme.primary : scheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(inConsult ? Icons.meeting_room : Icons.confirmation_number,
-                    color: inConsult ? scheme.onPrimary : scheme.onPrimaryContainer),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    doctorName == null
-                        ? 'You\'re in the queue'
-                        : 'In queue for $doctorName',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: inConsult ? scheme.onPrimary : scheme.onPrimaryContainer),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              appt.queuePosition != null ? 'Your token  #${appt.queuePosition}' : 'Checked in',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: inConsult ? scheme.onPrimary : scheme.onPrimaryContainer,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: inConsult ? scheme.onPrimary : scheme.onPrimaryContainer),
-            ),
-          ],
+    // Teal gradient hero card (reskin) — the live consultation header.
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: inConsult
+              ? const [AppColors.brand600, AppColors.brand900]
+              : const [AppColors.brand400, AppColors.brand700],
         ),
+        borderRadius: AppRadii.rCard,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.brand600.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Consultation header carries the doctor's face (branding).
+              if (doctorName != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: BrandAvatar(
+                      name: doctorName!, imageUrl: photoUrl, radius: 18),
+                )
+              else
+                Icon(
+                    inConsult
+                        ? Icons.meeting_room
+                        : Icons.confirmation_number,
+                    color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  doctorName == null
+                      ? 'You\'re in the queue'
+                      : 'In queue for $doctorName',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appt.queuePosition != null
+                ? 'Your token  #${appt.queuePosition}'
+                : 'Checked in',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
+          ),
+        ],
       ),
     );
   }

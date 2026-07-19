@@ -35,6 +35,28 @@ class AppColors {
   static const warningDark = Color(0xFFF0B429);
   static const infoLight = brand700;
   static const infoDark = brand300;
+
+  // ---- Mint/teal reskin (2026-07-19, founder-approved direction) ----
+  // Canvas: a warm mint-tinted background instead of default grey-white, so
+  // white cards float on it (reference #3 "Smart Booking" look).
+  static const canvasLight = Color(0xFFF2F9F7);
+  static const canvasDark = Color(0xFF101817);
+
+  // Soft tint fills for feature/role cards (reference #1's pastel cards) —
+  // used SPARINGLY as container fills with dark text on top (AA-checked).
+  static const tintMint = Color(0xFFDDF3EC);
+  static const tintPeach = Color(0xFFFCEBDD);
+  static const tintLavender = Color(0xFFE9E7FA);
+  static const tintSky = Color(0xFFE0F1FA);
+
+  // Dark-mode counterparts of the tints (low-chroma, elevated surfaces).
+  static const tintMintDark = Color(0xFF1B2E2A);
+  static const tintPeachDark = Color(0xFF33281F);
+  static const tintLavenderDark = Color(0xFF262438);
+  static const tintSkyDark = Color(0xFF1C2B33);
+
+  /// Health-green CTA accent (skill palette: "health green").
+  static const ctaGreen = Color(0xFF16A34A);
 }
 
 /// 4-pt spacing scale. Use these instead of magic numbers in padding/gaps.
@@ -55,12 +77,14 @@ class AppRadii {
   static const double sm = 8;
   static const double md = 12;
   static const double lg = 16;
+  static const double card = 20; // ONE card radius everywhere (reskin spec)
   static const double xl = 24;
   static const double pill = 999;
 
   static const BorderRadius rSm = BorderRadius.all(Radius.circular(sm));
   static const BorderRadius rMd = BorderRadius.all(Radius.circular(md));
   static const BorderRadius rLg = BorderRadius.all(Radius.circular(lg));
+  static const BorderRadius rCard = BorderRadius.all(Radius.circular(card));
   static const BorderRadius rXl = BorderRadius.all(Radius.circular(xl));
 }
 

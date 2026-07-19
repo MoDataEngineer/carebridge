@@ -165,6 +165,7 @@ void main() {
     expect(roster.roster.single.name, 'Dr Meera Nair');
     expect(find.textContaining('Could not add doctor'), findsNothing);
     expect(find.text('Dr Meera Nair'), findsOneWidget);
-    expect(find.text('Pediatrics'), findsOneWidget);
+    // Subtitle now also hints at the avatar photo upload (branding).
+    expect(find.textContaining('Pediatrics'), findsOneWidget);
   });
 }

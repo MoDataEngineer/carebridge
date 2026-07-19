@@ -27,6 +27,8 @@ dependencies:
   # Persists the dark-mode override across app restarts (UI brief §2).
   shared_preferences: ^2.3.0
   qr_flutter: ^4.1.0
+  image_picker: ^1.2.3
+  google_fonts: ^8.2.0
 
 dev_dependencies:
   flutter_test:

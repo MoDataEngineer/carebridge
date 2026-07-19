@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'design_tokens.dart';
 
@@ -20,16 +21,31 @@ class AppTheme {
     final isDark = scheme.brightness == Brightness.dark;
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
 
-    // Body text a notch larger than consumer defaults — patients span a wide
-    // age range (UI brief §2 typography). Respects text-scaling on top of this.
-    final t = base.textTheme;
+    // Healthcare type pairing (UI-UX-Pro-Max recommendation): Figtree for
+    // headings/labels — friendly, rounded, professional — over Noto Sans body.
+    // Body a notch larger than consumer defaults — patients span a wide age
+    // range (UI brief §2). Respects OS text-scaling on top of this.
+    final noto = GoogleFonts.notoSansTextTheme(base.textTheme);
+    final t = noto.copyWith(
+      displaySmall: GoogleFonts.figtree(textStyle: noto.displaySmall),
+      headlineMedium: GoogleFonts.figtree(textStyle: noto.headlineMedium),
+      headlineSmall: GoogleFonts.figtree(
+          textStyle: noto.headlineSmall, fontWeight: FontWeight.w700),
+      titleLarge: GoogleFonts.figtree(
+          textStyle: noto.titleLarge, fontWeight: FontWeight.w700),
+      titleMedium: GoogleFonts.figtree(
+          textStyle: noto.titleMedium, fontWeight: FontWeight.w600),
+      titleSmall: GoogleFonts.figtree(
+          textStyle: noto.titleSmall, fontWeight: FontWeight.w600),
+      labelLarge: GoogleFonts.figtree(
+          textStyle: noto.labelLarge, fontWeight: FontWeight.w600),
+    );
     final textTheme = t.copyWith(
       bodyLarge: t.bodyLarge?.copyWith(fontSize: 17, height: 1.4),
       bodyMedium: t.bodyMedium?.copyWith(fontSize: 15, height: 1.4),
       bodySmall: t.bodySmall?.copyWith(fontSize: 13, height: 1.35),
-      titleMedium: t.titleMedium?.copyWith(fontSize: 17, fontWeight: FontWeight.w600),
-      titleLarge: t.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-      labelLarge: t.labelLarge?.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
+      titleMedium: t.titleMedium?.copyWith(fontSize: 17),
+      labelLarge: t.labelLarge?.copyWith(fontSize: 15),
     );
 
     final status = isDark
@@ -44,10 +60,36 @@ class AppTheme {
             info: AppColors.infoLight,
           );
 
+    // Medical-data type hierarchy (UI brief §2): a lab value must read at a
+    // glance as VALUE (big, bold, tabular figures) / unit (medium) / label
+    // (small, muted) — one spec reused by every vitals/result surface.
+    final vitals = AppVitalStyles(
+      value: TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        height: 1.1,
+        fontFeatures: const [FontFeature.tabularFigures()],
+        color: scheme.onSurface,
+      ),
+      unit: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: scheme.onSurfaceVariant,
+      ),
+      label: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.4,
+        color: scheme.onSurfaceVariant,
+      ),
+    );
+
     return base.copyWith(
       textTheme: textTheme,
-      scaffoldBackgroundColor: scheme.surface,
-      extensions: [status],
+      // Mint-tinted canvas: white cards float on it (reference #3 look).
+      scaffoldBackgroundColor:
+          isDark ? AppColors.canvasDark : AppColors.canvasLight,
+      extensions: [status, vitals],
       // ---- Buttons: dominant primary action, 44dp+ targets (§4/§5) ----
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -69,23 +111,22 @@ class AppTheme {
           textStyle: textTheme.labelLarge,
         ),
       ),
-      // ---- Cards: subtle elevation, consistent radius (§4) ----
+      // ---- Cards (reskin spec): WHITE floating on the mint canvas, 20px
+      // radius, soft wide shadow, no borders — one treatment everywhere ----
       cardTheme: CardThemeData(
-        elevation: isDark ? 0 : 1,
-        color: scheme.surfaceContainerLow,
+        elevation: 0,
+        color: isDark ? scheme.surfaceContainerHigh : Colors.white,
         surfaceTintColor: Colors.transparent,
-        margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadii.rLg,
-          side: isDark
-              ? BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4))
-              : BorderSide.none,
-        ),
+        margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm / 2),
+        shadowColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.rCard),
       ),
       // ---- Inputs: clear, filled, large touch target (§4 forms) ----
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.4 : 0.6),
+        fillColor: isDark
+            ? scheme.surfaceContainerHighest.withValues(alpha: 0.4)
+            : Colors.white,
         border: const OutlineInputBorder(
           borderRadius: AppRadii.rMd,
           borderSide: BorderSide.none,
@@ -101,36 +142,95 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg, vertical: AppSpacing.lg),
       ),
+      // App bar melts into the mint canvas — screens read as one surface.
       appBarTheme: AppBarTheme(
         centerTitle: false,
-        scrolledUnderElevation: 1,
-        backgroundColor: scheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor:
+            isDark ? AppColors.canvasDark : AppColors.canvasLight,
         foregroundColor: scheme.onSurface,
         titleTextStyle: textTheme.titleLarge,
       ),
+      // Bottom nav: white pill bar (shells wrap it with rounded corners).
       navigationBarTheme: NavigationBarThemeData(
-        height: 64,
-        elevation: 2,
-        backgroundColor: scheme.surface,
-        indicatorColor: scheme.primaryContainer,
+        height: 68,
+        elevation: 0,
+        backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        indicatorColor:
+            isDark ? AppColors.tintMintDark : AppColors.tintMint,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStatePropertyAll(textTheme.labelMedium),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: scheme.surface,
-        indicatorColor: scheme.primaryContainer,
+        backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        indicatorColor:
+            isDark ? AppColors.tintMintDark : AppColors.tintMint,
         labelType: NavigationRailLabelType.all,
       ),
+      // Pill chips (reference #2/#3 category + slot chips).
       chipTheme: base.chipTheme.copyWith(
-        shape: const RoundedRectangleBorder(borderRadius: AppRadii.rSm),
+        shape: const StadiumBorder(),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        selectedColor: isDark ? AppColors.tintMintDark : AppColors.tintMint,
+        labelStyle: textTheme.labelLarge?.copyWith(fontSize: 14),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      ),
+      listTileTheme: const ListTileThemeData(
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.rCard),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: AppRadii.rMd),
       ),
-      dialogTheme: const DialogThemeData(
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.rLg),
+      dialogTheme: DialogThemeData(
+        backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.rXl),
       ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+      ),
+    );
+  }
+}
+
+/// Medical-data text hierarchy (value / unit / label) as a [ThemeExtension] —
+/// vitals and lab results read the same everywhere, light and dark.
+@immutable
+class AppVitalStyles extends ThemeExtension<AppVitalStyles> {
+  const AppVitalStyles({
+    required this.value,
+    required this.unit,
+    required this.label,
+  });
+
+  final TextStyle value;
+  final TextStyle unit;
+  final TextStyle label;
+
+  static AppVitalStyles of(BuildContext context) =>
+      Theme.of(context).extension<AppVitalStyles>()!;
+
+  @override
+  AppVitalStyles copyWith({TextStyle? value, TextStyle? unit, TextStyle? label}) =>
+      AppVitalStyles(
+        value: value ?? this.value,
+        unit: unit ?? this.unit,
+        label: label ?? this.label,
+      );
+
+  @override
+  AppVitalStyles lerp(ThemeExtension<AppVitalStyles>? other, double t) {
+    if (other is! AppVitalStyles) return this;
+    return AppVitalStyles(
+      value: TextStyle.lerp(value, other.value, t)!,
+      unit: TextStyle.lerp(unit, other.unit, t)!,
+      label: TextStyle.lerp(label, other.label, t)!,
     );
   }
 }

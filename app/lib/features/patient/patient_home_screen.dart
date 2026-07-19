@@ -118,13 +118,33 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
             _visited.contains(i) ? _tabs[i] : const SizedBox.shrink(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() {
-          _index = i;
-          _visited.add(i);
-        }),
-        destinations: _destinations,
+      // Floating pill nav (reskin, reference #3): the bar sits inset from the
+      // edges with rounded corners and a soft shadow.
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() {
+                _index = i;
+                _visited.add(i);
+              }),
+              destinations: _destinations,
+            ),
+          ),
+        ),
       ),
     );
   }

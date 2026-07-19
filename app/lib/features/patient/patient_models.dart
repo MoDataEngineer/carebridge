@@ -209,6 +209,8 @@ class BookableDoctor {
     this.hprVerified = false,
     this.city = '',
     this.state = '',
+    this.photoUrl,
+    this.logoUrl,
   });
   final String doctorId;
   final String clinicId;
@@ -226,6 +228,11 @@ class BookableDoctor {
   /// Directory filters — where the hospital is.
   final String city;
   final String state;
+
+  /// Branding (0030): doctor photo + clinic logo, null when not uploaded —
+  /// renderers fall back to initials (BrandAvatar).
+  final String? photoUrl;
+  final String? logoUrl;
 
   // Value equality by doctor id: the Book tab refetches the directory after
   // booking, and the dropdown's selected value must still match an item in

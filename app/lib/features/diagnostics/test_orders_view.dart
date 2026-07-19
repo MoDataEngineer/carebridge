@@ -6,6 +6,7 @@ import '../../shared/widgets/code_qr.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/skeleton_loader.dart';
 import '../../shared/widgets/status_pill.dart';
+import '../../shared/widgets/vital_tile.dart';
 import 'diagnostics_models.dart';
 import 'diagnostics_repository.dart';
 
@@ -239,25 +240,48 @@ class _ReportView extends ConsumerStatefulWidget {
 class _ReportViewState extends ConsumerState<_ReportView> {
   Future<String>? _signed;
 
+  /// Numeric value vs "low-high" reference range -> flag when outside.
+  /// Non-numeric or unparseable inputs are never flagged (no false alarms).
+  static bool _outOfRange(dynamic value, String? reference) {
+    if (reference == null) return false;
+    final v = double.tryParse(value.toString());
+    final m = RegExp(r'^\s*([\d.]+)\s*[-–]\s*([\d.]+)\s*$').firstMatch(reference);
+    if (v == null || m == null) return false;
+    final low = double.tryParse(m.group(1)!);
+    final high = double.tryParse(m.group(2)!);
+    if (low == null || high == null) return false;
+    return v < low || v > high;
+  }
+
   @override
   Widget build(BuildContext context) {
     final report = widget.report;
     if (report.reportType == 'structured' && report.structuredValues != null) {
+      final values = report.structuredValues!;
+      // Meta keys style their sibling measurements instead of tiling.
+      final unit = values['unit']?.toString();
+      final reference = values['reference_range']?.toString();
+      final measurements = values.entries
+          .where((e) => e.key != 'unit' && e.key != 'reference_range');
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Result', style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
-          for (final e in report.structuredValues!.entries)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Expanded(child: Text(e.key)),
-                  Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final e in measurements)
+                VitalTile(
+                  label: e.key,
+                  value: '${e.value}',
+                  unit: unit,
+                  reference: reference,
+                  flagged: _outOfRange(e.value, reference),
+                ),
+            ],
+          ),
         ],
       );
     }

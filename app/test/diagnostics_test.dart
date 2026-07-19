@@ -112,7 +112,8 @@ void main() {
 
     expect(find.textContaining('CBC'), findsOneWidget);
     expect(find.text('Report ready'), findsOneWidget);
-    expect(find.text('Hb'), findsOneWidget);
+    // VitalTile uppercases the measurement label (medical-data hierarchy).
+    expect(find.text('HB'), findsOneWidget);
     expect(find.text('13.5'), findsOneWidget);
     // No order action without canOrder.
     expect(find.text('Order test'), findsNothing);

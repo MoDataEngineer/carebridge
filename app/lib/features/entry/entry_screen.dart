@@ -3,17 +3,18 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
 import '../../core/theme/breakpoints.dart';
+import '../../core/theme/design_tokens.dart';
+import '../../shared/widgets/ayulekha_logo.dart';
+import '../../shared/widgets/fade_slide_in.dart';
 import '../../shared/widgets/role_button.dart';
 import '../../shared/widgets/theme_toggle_button.dart';
 
-/// THE entry screen (Section 2): three buttons, nothing else.
+/// THE entry screen (Section 2): three role choices, nothing else.
 /// Founder decision 2026-07-04: the clinic entry is labelled "Hospital"
-/// (was "Doctor" in the original spec); 2026-07-07 relabelled "Hospital /
-/// Doctor" since a doctor can now sign in directly with their own registered
-/// mobile (per-doctor login) and land straight in their own workspace.
-/// Hospitals self-register and add
-/// doctor profiles under themselves — solo doctors included.
-/// Diagnostic Partner stays flat.
+/// (2026-07-07: "Hospital / Doctor" — doctors can sign in with their own
+/// mobile). Diagnostic Partner stays flat.
+/// Reskin 2026-07-19 (mint/teal direction): painted logo mark, tagline, and
+/// three soft-tinted role cards — same three destinations, same labels.
 class EntryScreen extends StatelessWidget {
   const EntryScreen({super.key});
 
@@ -33,48 +34,70 @@ class EntryScreen extends StatelessWidget {
             ),
           ),
           Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Icon(Icons.health_and_safety,
-                    size: wide ? 72 : 56,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 16),
-                Text('Ayulekha',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 8),
-                Text('Your health record, with your consent.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: 48),
-                RoleButton(
-                  label: 'Patient',
-                  icon: Icons.person,
-                  onTap: () => context.push(Routes.patientAuth),
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: FadeSlideIn(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(child: AyulekhaLogo(size: wide ? 88 : 72)),
+                        const SizedBox(height: AppSpacing.xl),
+                        Text('Ayulekha',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineMedium
+                                ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.5)),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text('Your health record, with your consent.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant)),
+                        const SizedBox(height: AppSpacing.xxl),
+                        RoleButton(
+                          label: 'Patient',
+                          caption: 'Book visits, view records & reports',
+                          icon: Icons.person_outline,
+                          tint: AppColors.tintMint,
+                          tintDark: AppColors.tintMintDark,
+                          onTap: () => context.push(Routes.patientAuth),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        RoleButton(
+                          label: 'Hospital / Doctor',
+                          caption: 'Queue, visits, prescriptions & roster',
+                          icon: Icons.local_hospital_outlined,
+                          tint: AppColors.tintSky,
+                          tintDark: AppColors.tintSkyDark,
+                          onTap: () => context.push(Routes.clinicLogin),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        RoleButton(
+                          label: 'Diagnostic Partner',
+                          caption: 'Receive orders & upload reports',
+                          icon: Icons.biotech_outlined,
+                          tint: AppColors.tintPeach,
+                          tintDark: AppColors.tintPeachDark,
+                          onTap: () => context.push(Routes.diagnosticLogin),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                RoleButton(
-                  label: 'Hospital / Doctor',
-                  icon: Icons.local_hospital,
-                  onTap: () => context.push(Routes.clinicLogin),
-                ),
-                const SizedBox(height: 16),
-                RoleButton(
-                  label: 'Diagnostic Partner',
-                  icon: Icons.biotech,
-                  onTap: () => context.push(Routes.diagnosticLogin),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
         ],
       ),
     );

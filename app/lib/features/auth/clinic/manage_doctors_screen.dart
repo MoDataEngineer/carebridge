@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/constants/medical_specialties.dart';
+import '../../../shared/widgets/brand_avatar.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
 import 'availability_screen.dart';
+import 'branding_repository.dart';
 import 'clinic_models.dart';
 import 'clinic_sign_out_button.dart';
 import 'roster_repository.dart';
@@ -22,6 +25,10 @@ class ManageDoctorsScreen extends ConsumerStatefulWidget {
 
 class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
   List<DoctorSummary>? _docs; // null = still loading
+  ClinicBranding _branding = const ClinicBranding();
+
+  String? get _clinicId =>
+      ref.read(clinicSessionControllerProvider).active?.clinicId;
 
   @override
   void initState() {
@@ -32,6 +39,45 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
   Future<void> _reload() async {
     final docs = await ref.read(rosterRepositoryProvider).listDoctors();
     if (mounted) setState(() => _docs = docs);
+    final clinic = _clinicId;
+    if (clinic == null) return;
+    try {
+      final b = await ref.read(brandingRepositoryProvider).current(clinic);
+      if (mounted) setState(() => _branding = b);
+    } catch (_) {/* branding is decorative — never block the roster */}
+  }
+
+  /// Pick an image and upload it as a doctor photo ([doctorId]) or, when null,
+  /// the clinic logo (UI brief: doctor branding, uploadable).
+  Future<void> _uploadImage({String? doctorId}) async {
+    final clinic = _clinicId;
+    if (clinic == null) return;
+    final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery, maxWidth: 512, maxHeight: 512);
+    if (picked == null) return;
+    try {
+      final bytes = await picked.readAsBytes();
+      final ext = picked.name.contains('.')
+          ? picked.name.split('.').last
+          : 'png';
+      final url = await ref.read(brandingRepositoryProvider).upload(
+          clinicId: clinic, bytes: bytes, extension: ext, doctorId: doctorId);
+      if (!mounted) return;
+      setState(() => _branding = ClinicBranding(
+            photos: doctorId == null
+                ? _branding.photos
+                : {..._branding.photos, doctorId: url},
+            logoUrl: doctorId == null ? url : _branding.logoUrl,
+          ));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text(doctorId == null ? 'Clinic logo updated' : 'Photo updated')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      }
+    }
   }
 
   Future<void> _addDoctorDialog() async {
@@ -183,7 +229,25 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
             icon: const Icon(Icons.person_add),
             label: const Text('Add doctor'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          // Hospital branding: uploadable logo, shown to patients when booking.
+          Card(
+            child: ListTile(
+              leading: BrandAvatar(
+                  name: ref.watch(clinicSessionControllerProvider)
+                          .login?.clinicName ?? 'Clinic',
+                  imageUrl: _branding.logoUrl,
+                  square: true),
+              title: const Text('Hospital logo'),
+              subtitle: const Text('Shown to patients when they book'),
+              trailing: TextButton.icon(
+                icon: const Icon(Icons.upload, size: 18),
+                label: Text(_branding.logoUrl == null ? 'Upload' : 'Replace'),
+                onPressed: () => _uploadImage(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
           if (_docs == null)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -203,9 +267,17 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
             for (final d in _docs!)
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.badge),
+                  // Doctor photo (uploadable; initials until one is set).
+                  leading: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => _uploadImage(doctorId: d.id),
+                    child: BrandAvatar(
+                        name: d.name, imageUrl: _branding.photos[d.id]),
+                  ),
                   title: Text(d.name),
-                  subtitle: Text(d.specialty),
+                  subtitle: Text(d.specialty.isEmpty
+                      ? 'Tap the avatar to add a photo'
+                      : '${d.specialty} · tap the avatar to add a photo'),
                   trailing: TextButton.icon(
                     icon: const Icon(Icons.schedule, size: 18),
                     label: const Text('Availability'),

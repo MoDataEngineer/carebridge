@@ -147,17 +147,36 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
 
     return Scaffold(
       body: content,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: select,
-        destinations: [
-          for (final d in destinations)
-            NavigationDestination(
-              icon: _destIcon(d, d.icon, pending),
-              selectedIcon: _destIcon(d, d.selectedIcon, pending),
-              label: d.label,
+      // Floating pill nav (reskin) — mirrors the patient shell.
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: NavigationBar(
+              selectedIndex: index,
+              onDestinationSelected: select,
+              destinations: [
+                for (final d in destinations)
+                  NavigationDestination(
+                    icon: _destIcon(d, d.icon, pending),
+                    selectedIcon: _destIcon(d, d.selectedIcon, pending),
+                    label: d.label,
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

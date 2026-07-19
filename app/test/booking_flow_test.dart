@@ -117,7 +117,7 @@ void main() {
     await tester.tap(find.text('Request appointment'));
     await tester.pumpAndSettle();
     expect(repo.requestedSessionId, 'sess-d1');
-    expect(find.textContaining('Appointment confirmed'), findsOneWidget);
+    expect(find.textContaining('Booking confirmed'), findsOneWidget);
   });
 
   testWidgets('switching clinic clears the picked doctor', (tester) async {
