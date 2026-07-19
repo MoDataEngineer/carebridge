@@ -4,29 +4,26 @@
 > [`SECURITY_REVIEW_2026-07-19.md`](SECURITY_REVIEW_2026-07-19.md) — findings,
 > prioritized fix list, and the demo/non-prod items to flip before production.
 
-## OPEN — QR code renders as raw text + patient details fail to load from copied code (2026-07-18)
+## RESOLVED — QR raw text + patient details fail to load from copied code (fixed 2026-07-19)
 
-**Reported by founder during UI/UX modernization task (logged only — fix deliberately out of scope for that task).**
+Two separate causes, both addressed:
 
-Repro steps:
-1. Sign in as a patient (demo: mobile 9000000001) on the web build.
-2. Privacy tab → "Share your record" → the overlay shows the code as plain
-   text instead of a scannable QR image. Same on the Tests tab order cards.
-3. Copy the 6-char share code, sign in as the doctor (Sunrise 9000000000 →
-   Dr Priya PIN 1111), enter the code in patient search / claim.
-4. Doctor side fails to load the patient's details after submitting the code.
+1. **"QR renders as raw text"** — was a STALE cached web bundle. The `CodeQr`
+   widget (app/lib/shared/widgets/code_qr.dart) has rendered a real scannable
+   QR via `qr_flutter` since commit a6686e7. Confirmed correct on a fresh
+   `flutter build web --release --csp --no-web-resources-cdn`. No code change.
 
-Notes for the fixer:
-- Real QR rendering landed in commit a6686e7 (qr_flutter, `CodeQr` widget in
-  app/lib/shared/widgets/code_qr.dart, used by privacy_tab.dart and
-  test_orders_view.dart). "Raw text" strongly suggests the tester was on a
-  STALE cached web bundle — verify with a hard refresh (Ctrl+Shift+R) against
-  the current `flutter build web --release` output before code-diving.
-- "Patient details fail to load from the copied code" is a SEPARATE issue in
-  the doctor-side consent-code claim path (Flow A). Reproduce and capture:
-  the exact screen used, the RPC called (grep `carebridge_claim` /
-  consent-code redemption in doctor_repository.dart), and the error surfaced.
-  Check code expiry (short-lived by design) and case sensitivity of entry.
+2. **"Doctor side fails to load patient details after entering the code"** — the
+   real bug. `carebridge_redeem_consent_code` created the grant and returned the
+   patient id correctly, but the doctor UI **discarded** that id and only showed
+   "search to open the patient". In person the doctor rarely knows the patient's
+   exact stored name/phone, so the follow-up search came up empty → "can't load
+   the patient". Fix: the redeem dialog now returns the patient id and the
+   workspace opens that record directly (access_flow_dialogs.dart,
+   doctor_workspace_screen.dart, doctor_repository.dart `patientById`).
+   Regression test: doctor_core_test.dart "redeeming a consent code opens the
+   patient directly". The code itself is 16-char lowercase hex, 10-min expiry —
+   no case-sensitivity issue.
 
 ## Backlog (pre-ship, from 2026-07-18 audit)
 - Doctor roster: edit + deactivate (spec §5.2) — only "add" exists.

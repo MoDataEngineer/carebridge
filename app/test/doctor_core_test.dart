@@ -45,6 +45,14 @@ class _FakeDoctorRepo implements DoctorRepository {
   }
 
   @override
+  Future<PatientSearchResult?> patientById(String id) async {
+    final match = patients.where((p) => p.id == id);
+    if (match.isEmpty) return null;
+    final p = match.first;
+    return PatientSearchResult(id: p.id, name: p.name, phone: p.phone);
+  }
+
+  @override
   Future<List<VisitRecord>> patientHistory(String patientId) async => const [];
 
   @override
@@ -123,6 +131,27 @@ void main() {
 
     expect(find.text('Asha Rao'), findsOneWidget);
     expect(find.text('Bilal Khan'), findsOneWidget);
+  });
+
+  testWidgets('redeeming a consent code opens the patient directly', (tester) async {
+    // Regression (KNOWN_ISSUES QR/consent-code bug): after redeem the doctor
+    // used to be dropped back to an empty search and had to guess the patient's
+    // name. Now the returned patient id opens the record straight away.
+    final repo = _FakeDoctorRepo();
+    await tester.pumpWidget(_harness(repo, doctorScope));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Add by consent code'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Consent code'), 'deadbeef');
+    await tester.tap(find.text('Redeem'));
+    await tester.pumpAndSettle();
+
+    // The patient detail view is now open (name header + tabs), no search needed.
+    expect(find.text('Asha Rao'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
+    // Opening via consent code is audit-logged (Section 10).
+    expect(repo.viewLogs.single.what, contains('consent code'));
   });
 
   testWidgets('admin-only scope cannot author a visit (AC-9)', (tester) async {

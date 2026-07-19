@@ -5,7 +5,9 @@ import 'doctor_models.dart';
 import 'doctor_repository.dart';
 
 /// Flow A — redeem a patient's in-person consent code into a standing grant.
-Future<void> showRedeemConsentCodeDialog(BuildContext context, WidgetRef ref) async {
+/// Returns the now-accessible patient id on success (so the caller can open the
+/// patient directly), or null if the doctor cancelled or the code was invalid.
+Future<String?> showRedeemConsentCodeDialog(BuildContext context, WidgetRef ref) async {
   final ctrl = TextEditingController();
   final ok = await showDialog<bool>(
     context: context,
@@ -25,18 +27,22 @@ Future<void> showRedeemConsentCodeDialog(BuildContext context, WidgetRef ref) as
       ],
     ),
   );
-  if (ok != true || ctrl.text.trim().isEmpty) return;
-  if (!context.mounted) return;
+  if (ok != true || ctrl.text.trim().isEmpty) return null;
+  if (!context.mounted) return null;
   try {
-    await ref.read(doctorRepositoryProvider).redeemConsentCode(ctrl.text);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Access granted — search to open the patient')));
+    final patientId =
+        await ref.read(doctorRepositoryProvider).redeemConsentCode(ctrl.text);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Access granted — opening patient')));
+    }
+    return patientId;
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Invalid or expired code: $e')));
     }
+    return null;
   }
 }
 

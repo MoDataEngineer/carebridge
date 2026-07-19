@@ -40,6 +40,29 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
     });
   }
 
+  /// After a consent code is redeemed we already know the patient id — open
+  /// their record directly instead of making the doctor search by name (which,
+  /// in person, they often don't know exactly).
+  Future<void> _openPatientById(String id) async {
+    final p = await ref.read(doctorRepositoryProvider).patientById(id);
+    if (!mounted) return;
+    if (p == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Access granted, but the record could not be opened — '
+              'try searching for the patient.')));
+      return;
+    }
+    setState(() {
+      _results = null;
+      _selected = p;
+    });
+    // Section 10 auditability: opening the record is logged (best-effort).
+    ref
+        .read(doctorRepositoryProvider)
+        .logView(p.id, 'patient record opened (consent code)')
+        .catchError((_) {});
+  }
+
   @override
   void dispose() {
     _query.dispose();
@@ -64,7 +87,13 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
             IconButton(
               tooltip: 'Add by consent code',
               icon: const Icon(Icons.qr_code_scanner),
-              onPressed: () => showRedeemConsentCodeDialog(context, ref),
+              onPressed: () async {
+                final patientId =
+                    await showRedeemConsentCodeDialog(context, ref);
+                if (patientId != null && mounted) {
+                  await _openPatientById(patientId);
+                }
+              },
             ),
             IconButton(
               tooltip: 'Request access',

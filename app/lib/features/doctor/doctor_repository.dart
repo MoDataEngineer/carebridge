@@ -18,6 +18,11 @@ abstract class DoctorRepository {
   /// Scoped search by name / phone / ABHA (Section 5.2). RLS pre-filters rows.
   Future<List<PatientSearchResult>> searchPatients(String query);
 
+  /// Fetch a single patient by id (RLS-scoped — returns null if the active
+  /// scope may not view them). Used to jump straight into a patient after a
+  /// consent code is redeemed, without making the doctor search by name.
+  Future<PatientSearchResult?> patientById(String id);
+
   /// Read-only visit history for one patient, most recent first.
   Future<List<VisitRecord>> patientHistory(String patientId);
 
@@ -66,6 +71,18 @@ class SupabaseDoctorRepository implements DoctorRepository {
     return (rows as List)
         .map((m) => PatientSearchResult.fromMap(m as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<PatientSearchResult?> patientById(String id) async {
+    final rows = await _client
+        .from('patients')
+        .select('id, name, phone, abha_id')
+        .eq('id', id)
+        .limit(1);
+    final list = rows as List;
+    if (list.isEmpty) return null;
+    return PatientSearchResult.fromMap(list.first as Map<String, dynamic>);
   }
 
   @override
