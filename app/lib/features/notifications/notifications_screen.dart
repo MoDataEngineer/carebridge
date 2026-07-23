@@ -13,6 +13,7 @@ class NotificationsScreen extends ConsumerWidget {
 
   static const _icons = {
     'appointment_reminder': Icons.event,
+    'no_show': Icons.event_busy,
     'follow_up': Icons.event_repeat,
     'report_ready': Icons.science,
     'medication_reminder': Icons.medication,

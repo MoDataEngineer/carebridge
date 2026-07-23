@@ -91,6 +91,8 @@ const TITLES: Record<string, (p: Record<string, unknown>) => [string, string]> =
     "You have an appointment scheduled tomorrow. Tap to view details."],
   follow_up: () => ["Follow-up due today",
     "Your doctor advised a follow-up visit for today."],
+  no_show: () => ["Missed appointment",
+    "You missed a scheduled appointment — open Ayulekha to rebook."],
   report_ready: () => ["Test report ready",
     "A test report is ready — open Ayulekha to view it."],
   medication_reminder: (p) => ["Medication reminder",
@@ -108,7 +110,10 @@ Deno.serve(async (req) => {
   if (!authorized) return json({ error: "forbidden" }, 403);
 
   const db = createClient(SUPABASE_URL, SERVICE_KEY);
-  const result = { medication_enqueued: 0, dispatched: 0, pushed: 0, push_errors: 0 };
+  const result = {
+    medication_enqueued: 0, appointment_enqueued: 0, no_show_enqueued: 0,
+    followup_enqueued: 0, dispatched: 0, pushed: 0, push_errors: 0,
+  };
 
   // ---- 1. Medication reminders for the current IST slot ----
   const slotInfo = currentIstSlot();
@@ -141,6 +146,68 @@ Deno.serve(async (req) => {
         scheduled_for: new Date().toISOString(),
       });
       result.medication_enqueued++;
+    }
+  }
+
+  // ---- 1b. Appointment + no-show reminders ----
+  // IST calendar dates (patients are in India). We classify each active
+  // ('scheduled' = approved, not yet attended) appointment by its IST date:
+  //   - tomorrow  -> a day-before "appointment_reminder"
+  //   - in the past & still 'scheduled' (never checked in) -> a "no_show" nudge
+  // Deduped per appointment so re-runs never double-send.
+  const nowIst = new Date(Date.now() + 5.5 * 3600 * 1000);
+  const todayIst = nowIst.toISOString().slice(0, 10);
+  const tomorrowIst = new Date(nowIst.getTime() + 86400_000).toISOString().slice(0, 10);
+  {
+    const { data: appts } = await db
+      .from("appointments")
+      .select("id, patient_id, scheduled_time")
+      .eq("status", "scheduled")
+      .gte("scheduled_time", new Date(Date.now() - 3 * 86400_000).toISOString())
+      .lte("scheduled_time", new Date(Date.now() + 3 * 86400_000).toISOString());
+    for (const a of appts ?? []) {
+      const istDate = new Date(new Date(a.scheduled_time as string).getTime() +
+        5.5 * 3600_000).toISOString().slice(0, 10);
+      let type: string | null = null;
+      if (istDate === tomorrowIst) type = "appointment_reminder";
+      else if (istDate < todayIst) type = "no_show";
+      if (!type) continue;
+      // Dedupe per appointment per type (one reminder, one no-show ever).
+      const { data: dup } = await db.from("notifications").select("id")
+        .eq("patient_id", a.patient_id).eq("type", type)
+        .eq("payload->>appointment_id", a.id).limit(1);
+      if (dup && dup.length > 0) continue;
+      await db.from("notifications").insert({
+        patient_id: a.patient_id,
+        type,
+        payload: { appointment_id: a.id, date: istDate },
+        scheduled_for: new Date().toISOString(),
+      });
+      if (type === "no_show") result.no_show_enqueued++;
+      else result.appointment_enqueued++;
+    }
+  }
+
+  // ---- 1c. Follow-up-due reminders ----
+  // Visits whose advised follow-up falls on today (IST) and isn't done yet.
+  {
+    const { data: visits } = await db
+      .from("visits")
+      .select("id, patient_id")
+      .eq("follow_up_completed", false)
+      .eq("follow_up_date", todayIst);
+    for (const v of visits ?? []) {
+      const { data: dup } = await db.from("notifications").select("id")
+        .eq("patient_id", v.patient_id).eq("type", "follow_up")
+        .eq("payload->>visit_id", v.id).eq("payload->>date", todayIst).limit(1);
+      if (dup && dup.length > 0) continue;
+      await db.from("notifications").insert({
+        patient_id: v.patient_id,
+        type: "follow_up",
+        payload: { visit_id: v.id, date: todayIst },
+        scheduled_for: new Date().toISOString(),
+      });
+      result.followup_enqueued++;
     }
   }
 

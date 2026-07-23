@@ -30,6 +30,9 @@ Two separate causes, both addressed:
 - ~~In-app PDF viewer for uploaded reports~~ — DONE: pdfx on mobile, native
   <iframe> on web (report_pdf_view*.dart). pdfx's own web renderer (pdf.js via
   CDN) is intentionally unused — it conflicts with the L4 CSP.
-- No-show / follow-up automated reminders (paid tier).
+- ~~No-show / follow-up automated reminders~~ — DONE: the notifications cron
+  now auto-enqueues appointment-tomorrow, no-show (past 'scheduled' appts), and
+  follow-up-due reminders (supabase/functions/notifications). In-app feed works
+  regardless of FCM; push needs FCM_SERVICE_ACCOUNT + the dashboard cron running.
 - Founder verification screen for new hospitals/labs (today: Supabase dashboard).
 - Camera-based QR scanning on doctor/lab side (codes are typeable meanwhile).

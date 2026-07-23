@@ -37,6 +37,7 @@ class PatientNotification {
   /// Plain-language line for the feed.
   String get message => switch (type) {
         'appointment_reminder' => 'Appointment reminder — you have a visit coming up.',
+        'no_show' => 'You missed a scheduled appointment — tap to rebook.',
         'follow_up' => 'Follow-up due — your doctor advised a follow-up visit.',
         'report_ready' =>
           'Your ${payload['test_name'] ?? 'test'} report is ready to view.',
