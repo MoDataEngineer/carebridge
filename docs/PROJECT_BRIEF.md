@@ -273,3 +273,36 @@ notifications
 - Keep one Flutter codebase — do not fork separate web/mobile/role-specific projects.
 - Flag clearly (don't silently skip) anything depending on credentials/APIs not yet available (ABDM sandbox keys, Claude API key, FCM config) — stub it and note what's needed to make it real.
 - If anything in this spec seems contradictory or underspecified once you're implementing it, stop and ask the founder rather than guessing — several decisions here (admin inherited visibility, clinical-accountability gating) were explicit judgment calls, not arbitrary defaults, and silently reinterpreting them could break the trust model the whole app depends on.
+
+## 13. Wearables & vitals module (PLANNED epic — Phases 12+, D14)
+
+> Planned, not built. Authoritative design record: `docs/EPIC_wearables.md`
+> (decision `DECISIONS.md` D14, 2026-07-23).
+
+Patients connect a fitness band / smartwatch and get a standalone, always-free
+**Strava-style daily fitness tracker** (steps, calories, active minutes,
+workouts, sleep, heart rate, streaks, goals) — useful even if never shared. When
+the patient chooses to share, the doctor gets a **paid**, per-patient trend +
+**adherence** view that ties wearable data to a prior visit's advice
+("did the patient follow it / did they improve").
+
+- **Roles.** Patient view free & standalone; doctor view paid & consent-gated
+  (Section 9). Diagnostic partner: out of scope. **Clinic admin (AC-8) does NOT
+  auto-inherit wearable visibility** — stricter than clinical visit data.
+- **Consent (Section 7 extension).** A NEW, separate, revocable grant scope
+  `wearable`, **patient-initiated** (a "Share vitals" toggle per doctor), never
+  automatic, logged in `access_logs` as `what_viewed = 'wearable data'`, gated by
+  its own visibility helper (a plain clinical grant must not confer vitals
+  access).
+- **Integration.** On-device **Apple HealthKit + Android Health Connect only**
+  (free, India-resident storage, no cross-border transfer). No paid aggregator
+  (Rook/Terra/…) without a new decision.
+- **Data model (Section 6 extension).** `wearable_connections`,
+  `wearable_metrics_daily`, `wearable_workouts` (optional `visit_id`), optional
+  short-lived raw samples with retention; `grant_type` gains `'wearable'`; visits
+  gain optional structured `advice`.
+- **Clinical-safety.** Raw trends only — NO auto-diagnosis, scoring, or alerting
+  (consistent with Section 8). Regulated signals (ECG/AFib, SpO2, BP, CGM) shown
+  informational, non-diagnostic.
+- **Non-functional.** Continuous physiological data is sensitive under the DPDP
+  Act; encryption + retention limits + purpose-limited consent apply.

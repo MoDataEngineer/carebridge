@@ -347,3 +347,42 @@ clarifying questions come before implementation rather than after mistakes.
 **Before production (demo posture to flip):** see the "Demo / non-prod items" table
 in `docs/SECURITY_REVIEW_2026-07-19.md` — OTP enforcement, demo seed PINs, ABDM
 callback signature verification, secret rotation.
+
+## 15. Wearables & vitals module (PLANNED epic — Phases 12+, D14)
+
+> Planned, not built. Full design: `docs/EPIC_wearables.md`; decision
+> `DECISIONS.md` D14 (2026-07-23); PRD summary `PROJECT_BRIEF.md` §13. When this
+> epic is eventually built, the rules below are non-negotiable — re-read them.
+
+Patients get a standalone, always-free Strava-style daily fitness tracker
+(steps/calories/workouts/sleep/HR/streaks). Doctors get a **paid**, consent-gated,
+per-patient trend + adherence view tying wearable data to a visit's advice.
+
+1. **Separate consent scope.** Sharing wearable data uses a NEW revocable
+   `wearable` grant scope in `access_grants` (add `'wearable'` to `grant_type`),
+   **patient-initiated** (never auto-granted). It MUST be checked by its own
+   helper `current_scope_can_view_wearables()` — the existing
+   `current_scope_can_view_patient()` ignores grant `type`, so a plain clinical
+   `standing` grant must NOT confer vitals access. **Clinic admin AC-8 does NOT
+   auto-inherit wearable visibility.** Log doctor reads to `access_logs` with
+   `what_viewed = 'wearable data'`.
+2. **On-device capture only.** Apple HealthKit + Android Health Connect (free,
+   India-resident storage, no cross-border transfer). Do NOT add a paid
+   aggregator (Rook/Terra/Spike/Thryve) without a new decision — it reintroduces
+   cost and DPDP cross-border exposure.
+3. **Strictly non-diagnostic** (mirrors §8 AI-summary boundary). Display raw
+   trends only — NO auto-diagnosis, risk scores, or abnormality alerts. Regulated
+   signals (ECG/AFib, SpO2, BP, CGM) shown "informational, from the device — not
+   a diagnostic measurement." Anything that alerts/interprets risks regulated
+   medical-device territory — out of scope.
+4. **Paid gating.** The doctor view is a paid-tier feature (Section 9), gated via
+   `current_clinic_is_paid()` / `scope.paid`; the patient's own view is free.
+5. **Data model.** New tables `wearable_connections`, `wearable_metrics_daily`
+   (aggregates are the long-term store), `wearable_workouts` (optional
+   `visit_id`); optional short-lived raw samples with an explicit retention/
+   downsample policy (greenfield — no existing precedent); `visits` gain an
+   optional structured `advice` field for the actual-vs-target overlay.
+6. **Phasing.** P12 patient tracker + consent foundation; P13 doctor view + visit
+   linkage; P14 follow-up-loop + BP inputs. Build one phase at a time with trust
+   tests (Section 12), especially: admin never sees wearables without an explicit
+   grant, and a clinical grant alone never reveals vitals.

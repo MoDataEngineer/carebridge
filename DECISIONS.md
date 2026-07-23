@@ -178,6 +178,35 @@ it that doctor uses the shared hospital login + picker as before. When OTP is
 live (D12), the SMS goes to whichever number was entered (the doctor's own for a
 doctor login).
 
+## D14 — Wearables & vitals epic (PLANNED 2026-07-23, post-MVP Phases 12+)
+
+Fold fitness-band / smartwatch vitals into Ayulekha. **Planned, not built** —
+full design in `docs/EPIC_wearables.md`, PRD summary `PROJECT_BRIEF.md` §13,
+hard rules `CLAUDE.md`/`AGENTS.md` §15. Two independent goals: (1) a standalone,
+always-free **Strava-style patient fitness tracker** (steps, calories, workouts,
+sleep, HR, streaks) usable with no doctor; (2) an opt-in, **paid** doctor
+trend + adherence view that ties wearable data to a visit's advice to answer
+"did the patient follow it / did they improve".
+
+Key calls recorded:
+- **On-device capture only** for MVP — Apple HealthKit + Android Health Connect
+  (free, India-resident storage). No paid aggregator (Rook/Terra/Spike/Thryve)
+  without a new decision — it reintroduces cost and DPDP cross-border exposure.
+  Aggregator kept as a deferred, unscheduled paid fallback for band/web coverage.
+- **New, separate, revocable `wearable` consent scope** (add to `grant_type`),
+  **patient-initiated** ("Share vitals" toggle per doctor), never automatic,
+  logged as `what_viewed='wearable data'`, checked by its own visibility helper
+  `current_scope_can_view_wearables()`. A plain clinical `standing` grant must
+  NOT confer vitals access. **Clinic admin AC-8 does NOT auto-inherit** (stricter
+  than clinical visit data — a deliberate departure from D-none/Section 7).
+- **Structured visit-advice fields** on `visits` (e.g. `advice jsonb`) so the
+  doctor view overlays actual-vs-target, not just a date marker.
+- **Strictly non-diagnostic** (mirrors Section 8): raw trends only, no scores or
+  alerts; regulated signals (ECG/AFib, SpO2, BP, CGM) shown informational only.
+- **Paid gating** (Section 9) for the doctor view; patient view free.
+- **Phasing:** P12 patient tracker + consent foundation; P13 doctor view + visit
+  linkage; P14 follow-up loop + BP inputs. Each returns for approval.
+
 ---
 
 ### Net effect on the data model
@@ -187,3 +216,4 @@ doctor login).
 - Scope claims live in the JWT, not a table (D2).
 - `prescriptions` → structured `schedule` / `relation_to_food` / `duration_days` (D5).
 - `doctors` → add `phone` (nullable, unique on normalized last-10) for per-doctor login (D13).
+- PLANNED (D14, Phases 12+): `grant_type` → add `'wearable'`; new `wearable_connections` / `wearable_metrics_daily` / `wearable_workouts` tables (+ optional short-lived raw samples); `visits` → optional structured `advice`. Not built yet.
