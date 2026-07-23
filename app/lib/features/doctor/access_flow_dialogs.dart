@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/scan_code_screen.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
 
@@ -13,13 +14,29 @@ Future<String?> showRedeemConsentCodeDialog(BuildContext context, WidgetRef ref)
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Add patient by consent code'),
-      content: TextField(
-        controller: ctrl,
-        autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'Consent code',
-          hintText: 'Code the patient is showing you',
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Consent code',
+              hintText: 'Code the patient is showing you',
+            ),
+          ),
+          if (qrScanningSupported) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scan QR code'),
+              onPressed: () async {
+                final code = await scanCode(ctx, title: 'Scan consent code');
+                if (code != null) ctrl.text = code;
+              },
+            ),
+          ],
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),

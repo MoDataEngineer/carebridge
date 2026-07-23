@@ -143,6 +143,8 @@ void main() {
 
     await tester.tap(find.byTooltip('Add by consent code'));
     await tester.pumpAndSettle();
+    // Camera scanning is offered alongside manual entry (mobile platforms).
+    expect(find.text('Scan QR code'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Consent code'), 'deadbeef');
     await tester.tap(find.text('Redeem'));
     await tester.pumpAndSettle();

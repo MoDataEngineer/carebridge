@@ -34,5 +34,11 @@ Two separate causes, both addressed:
   now auto-enqueues appointment-tomorrow, no-show (past 'scheduled' appts), and
   follow-up-due reminders (supabase/functions/notifications). In-app feed works
   regardless of FCM; push needs FCM_SERVICE_ACCOUNT + the dashboard cron running.
-- Founder verification screen for new hospitals/labs (today: Supabase dashboard).
-- Camera-based QR scanning on doctor/lab side (codes are typeable meanwhile).
+- ~~Camera-based QR scanning on doctor/lab side~~ — DONE: mobile_scanner adds a
+  "Scan QR code" option to the doctor consent-code dialog and the lab order-claim
+  dialog on mobile/tablet (scan_code_screen.dart). Web keeps manual entry (no
+  camera dependency invoked there). Manual typing remains everywhere as fallback.
+- Founder verification screen for new hospitals/labs — DEFERRED to post-
+  incorporation (founder is the only approver pre-launch; Supabase dashboard
+  `UPDATE clinics SET verified=true` is the interim step; needs a new
+  founder/platform-admin auth path to build properly).

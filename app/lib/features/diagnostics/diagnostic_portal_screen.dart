@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
 import '../../shared/widgets/empty_state.dart';
+import '../../shared/widgets/scan_code_screen.dart';
 import '../../shared/widgets/skeleton_loader.dart';
 import '../../shared/widgets/status_pill.dart';
 import '../../shared/widgets/theme_toggle_button.dart';
@@ -101,13 +102,29 @@ class _DiagnosticPortalScreenState extends ConsumerState<DiagnosticPortalScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Claim an order'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Order code',
-            hintText: 'Code the patient is showing you',
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Order code',
+                hintText: 'Code the patient is showing you',
+              ),
+            ),
+            if (qrScanningSupported) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan QR code'),
+                onPressed: () async {
+                  final code = await scanCode(ctx, title: 'Scan order code');
+                  if (code != null) ctrl.text = code;
+                },
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),

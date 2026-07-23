@@ -35,6 +35,10 @@ dependencies:
   # unused — it conflicts with the app CSP (L4).
   pdfx: ^2.9.2
   web: ^1.1.0
+  # Camera QR scanning for consent/order codes (Flow A + lab claim). Used on
+  # mobile/tablet where a camera is pointed at the patient's QR; on web the
+  # manual code entry stays the path (no camera dependency invoked there).
+  mobile_scanner: ^7.4.0
 
 dev_dependencies:
   flutter_test:
