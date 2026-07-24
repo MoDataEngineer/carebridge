@@ -115,7 +115,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             _FeatureTile(
               label: 'Book visit',
               caption: 'Find a doctor',
-              icon: Icons.event_available_outlined,
+              icon: Icons.event,
               tint: AppColors.tintMint,
               onTap: () => widget.onNavigate(1),
             ),

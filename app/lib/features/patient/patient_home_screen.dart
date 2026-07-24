@@ -43,8 +43,12 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
         _visited.add(i);
       });
 
+  // Only glyphs observed to render in this project's icon font. `home_outlined`
+  // and the `_rounded` variants paint blank here, so Home uses the filled
+  // `Icons.home` while the rest keep their `_outlined` forms (all confirmed
+  // rendering).
   static const _destinations = [
-    PillNavItem(icon: Icons.home_outlined, label: 'Home'),
+    PillNavItem(icon: Icons.home, label: 'Home'),
     PillNavItem(icon: Icons.event_outlined, label: 'Book'),
     PillNavItem(icon: Icons.history_outlined, label: 'History'),
     PillNavItem(icon: Icons.science_outlined, label: 'Tests'),
