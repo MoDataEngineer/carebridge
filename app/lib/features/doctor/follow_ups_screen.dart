@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/theme_toggle_button.dart';
@@ -78,7 +79,7 @@ class _FollowUpsScreenState extends ConsumerState<FollowUpsScreen> {
                 ),
               ])
             : _items == null
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PillsLoader())
                 : _items!.isEmpty
                     ? ListView(children: const [
                         Padding(

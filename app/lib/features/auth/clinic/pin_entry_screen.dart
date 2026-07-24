@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -80,7 +81,7 @@ class _PinEntryScreenState extends ConsumerState<PinEntryScreen> {
             onPressed: _busy ? null : _unlock,
             child: _busy
                 ? const SizedBox(
-                    height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    height: 20, width: 20, child: PillsLoader(size: 20))
                 : const Text('Unlock session'),
           ),
           if (_error != null) ...[

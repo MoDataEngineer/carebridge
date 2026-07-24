@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -533,7 +534,7 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
           onPressed: _booking ? null : _book,
           child: _booking
               ? const SizedBox(
-                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  height: 20, width: 20, child: PillsLoader(size: 20))
               : const Text('Request appointment'),
         ),
         const Divider(height: 32),

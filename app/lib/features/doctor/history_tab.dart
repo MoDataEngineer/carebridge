@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'doctor_models.dart';
@@ -36,7 +37,7 @@ class HistoryTabState extends ConsumerState<HistoryTab> {
       future: _visits,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: PillsLoader());
         }
         final visits = snap.data ?? const [];
         if (visits.isEmpty) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -355,7 +356,7 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
           if (_docs == null)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: PillsLoader()),
             )
           else if (_docs!.isEmpty)
             Padding(

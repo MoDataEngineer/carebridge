@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/enums.dart';
@@ -115,7 +116,7 @@ class _LiveQueueScreenState extends ConsumerState<LiveQueueScreen> {
             )
           : null,
       body: entries == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: PillsLoader())
           : entries.isEmpty
               ? const Center(child: Text('No appointments today.'))
               : ListView(

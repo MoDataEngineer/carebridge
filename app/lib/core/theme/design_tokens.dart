@@ -57,6 +57,20 @@ class AppColors {
 
   /// Health-green CTA accent (skill palette: "health green").
   static const ctaGreen = Color(0xFF16A34A);
+
+  // ---- Prototype polish (2026-07-24) ----
+  /// Near-black teal ink — the selected bottom-nav "pill" and dark hero grounds
+  /// (prototype: the dark rounded pill behind the active tab).
+  static const ink = Color(0xFF13211E);
+
+  /// Two-tone capsule colours for the branded orbiting-pills loader — one per
+  /// brand tint (teal, peach, lavender, sky, green, rose).
+  static const pillTeal = brand500;
+  static const pillPeach = Color(0xFFF3A26D);
+  static const pillLavender = Color(0xFF9B8CE0);
+  static const pillSky = Color(0xFF56B4E0);
+  static const pillGreen = ctaGreen;
+  static const pillRose = Color(0xFFE87B9B);
 }
 
 /// 4-pt spacing scale. Use these instead of magic numbers in padding/gaps.

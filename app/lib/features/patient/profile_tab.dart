@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/constants/medical_conditions.dart';
+import '../../shared/widgets/pills_loader.dart';
 import '../abha/abdm_models.dart';
 import '../abha/abha_link_screen.dart';
 import 'patient_models.dart';
@@ -114,7 +115,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: PillsLoader());
     if (_error != null) return Center(child: Text('Could not load profile: $_error'));
 
     return ListView(
@@ -187,7 +188,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           onPressed: _saving ? null : _save,
           child: _saving
               ? const SizedBox(
-                  height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  height: 20, width: 20, child: PillsLoader(size: 20))
               : const Text('Save profile'),
         ),
       ],

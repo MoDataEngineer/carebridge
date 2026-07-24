@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'notifications_controller.dart';
@@ -29,7 +30,7 @@ class NotificationsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
       body: feed.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: PillsLoader()),
         error: (e, _) => ListView(children: [
           Padding(
             padding: const EdgeInsets.all(24),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/enums.dart';
@@ -138,7 +139,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
                   future: _results,
                   builder: (context, snap) {
                     if (snap.connectionState != ConnectionState.done) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const Center(child: PillsLoader());
                     }
                     final list = snap.data ?? const [];
                     if (list.isEmpty) {

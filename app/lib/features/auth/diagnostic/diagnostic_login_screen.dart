@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/pills_loader.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -105,7 +106,7 @@ class _DiagnosticLoginScreenState extends ConsumerState<DiagnosticLoginScreen> {
                 ? const SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: PillsLoader(size: 20))
                 : const Text('Sign in'),
           ),
           if (_error != null) ...[
@@ -288,7 +289,7 @@ class _PartnerRegisterScreenState
                 ? const SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: PillsLoader(size: 20))
                 : const Text('Register & sign in'),
           ),
           if (_error != null) ...[

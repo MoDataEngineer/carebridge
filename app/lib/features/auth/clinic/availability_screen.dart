@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/responsive_scaffold.dart';
@@ -88,7 +89,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
           ? Text('Could not load availability: $_error')
           : _sessions == null
               ? const Center(child: Padding(
-                  padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                  padding: EdgeInsets.all(24), child: PillsLoader()))
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -105,7 +106,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                       onPressed: _saving ? null : _save,
                       child: _saving
                           ? const SizedBox(
-                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              height: 20, width: 20, child: PillsLoader(size: 20))
                           : const Text('Save availability'),
                     ),
                   ],

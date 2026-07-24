@@ -152,15 +152,31 @@ class AppTheme {
         foregroundColor: scheme.onSurface,
         titleTextStyle: textTheme.titleLarge,
       ),
-      // Bottom nav: white pill bar (shells wrap it with rounded corners).
+      // Bottom nav: white pill bar (shells wrap it with rounded corners). The
+      // ACTIVE destination gets a dark ink pill with a white icon; its label
+      // shows only when selected (prototype 1). Inactive = muted icon only.
       navigationBarTheme: NavigationBarThemeData(
         height: 68,
         elevation: 0,
         backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
-        indicatorColor:
-            isDark ? AppColors.tintMintDark : AppColors.tintMint,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        labelTextStyle: WidgetStatePropertyAll(textTheme.labelMedium),
+        indicatorColor: AppColors.ink,
+        indicatorShape: const StadiumBorder(),
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (s) => IconThemeData(
+            color: s.contains(WidgetState.selected)
+                ? Colors.white
+                : scheme.onSurfaceVariant,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (s) => (textTheme.labelMedium ?? const TextStyle()).copyWith(
+            color: s.contains(WidgetState.selected)
+                ? AppColors.ink
+                : scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,

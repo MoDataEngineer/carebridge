@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/widgets/code_qr.dart';
 import '../../shared/widgets/fade_slide_in.dart';
 import '../../shared/widgets/glass_panel.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'consent_models.dart';
 import 'consent_repository.dart';
 
@@ -117,7 +118,7 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
       future: _data,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: PillsLoader());
         }
         if (snap.hasError) {
           return Center(child: Text('Could not load: ${snap.error}'));
