@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
 import '../../shared/sound/notification_sound.dart';
-import '../../shared/widgets/pop_icon.dart';
+import '../../shared/widgets/pill_nav_bar.dart';
 import '../../shared/widgets/theme_toggle_button.dart';
 import '../diagnostics/test_orders_view.dart';
 import '../notifications/notifications_controller.dart';
@@ -43,28 +43,11 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
         _visited.add(i);
       });
 
-  // selectedIcon is a PopIcon so the active tab's icon animates on arrival.
   static const _destinations = [
-    NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: PopIcon(Icons.home),
-      label: 'Home',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.event_outlined),
-      selectedIcon: PopIcon(Icons.event),
-      label: 'Book',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.history_outlined),
-      selectedIcon: PopIcon(Icons.history),
-      label: 'History',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.science_outlined),
-      selectedIcon: PopIcon(Icons.science),
-      label: 'Tests',
-    ),
+    PillNavItem(icon: Icons.home_outlined, label: 'Home'),
+    PillNavItem(icon: Icons.event_outlined, label: 'Book'),
+    PillNavItem(icon: Icons.history_outlined, label: 'History'),
+    PillNavItem(icon: Icons.science_outlined, label: 'Tests'),
   ];
 
   @override
@@ -122,30 +105,13 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
             _visited.contains(i) ? tabs[i] : const SizedBox.shrink(),
         ],
       ),
-      // Floating pill nav (reskin, reference #3): the bar sits inset from the
-      // edges with rounded corners and a soft shadow.
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: NavigationBar(
-              selectedIndex: _index,
-              onDestinationSelected: _select,
-              destinations: _destinations,
-            ),
-          ),
-        ),
+      // Floating pill nav (custom): the active tab is a dark ink pill with its
+      // icon + label; Home is always present (Material's NavigationBar dropped
+      // it when a later tab was selected).
+      bottomNavigationBar: PillNavBar(
+        currentIndex: _index,
+        items: _destinations,
+        onTap: _select,
       ),
     );
   }

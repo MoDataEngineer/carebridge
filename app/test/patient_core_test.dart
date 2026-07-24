@@ -160,7 +160,9 @@ void main() {
     await tester.pumpWidget(_harness(_FakePatientRepo()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Book'));
+    // Custom pill nav shows a label only on the active tab — switch to Book by
+    // its (unselected) icon.
+    await tester.tap(find.byIcon(Icons.event_outlined));
     await tester.pumpAndSettle();
     expect(find.text('No appointments yet.'), findsOneWidget);
 
