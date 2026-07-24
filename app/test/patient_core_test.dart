@@ -1,5 +1,6 @@
 import 'package:carebridge/core/theme/app_theme.dart';
 import 'package:carebridge/features/patient/patient_home_screen.dart';
+import 'package:carebridge/shared/widgets/brand_avatar.dart';
 import 'package:carebridge/features/patient/patient_models.dart';
 import 'package:carebridge/features/patient/patient_repository.dart';
 import 'package:flutter/material.dart';
@@ -114,6 +115,10 @@ void main() {
     await tester.pumpWidget(_harness(repo));
     await tester.pumpAndSettle();
 
+    // Profile now lives behind the Home header avatar (not a bottom tab).
+    await tester.tap(find.byType(BrandAvatar));
+    await tester.pumpAndSettle();
+
     // Existing structured data is shown as chips.
     expect(find.widgetWithText(Chip, 'Penicillin'), findsOneWidget);
     expect(find.widgetWithText(Chip, 'Asthma'), findsOneWidget);
@@ -134,7 +139,9 @@ void main() {
     await tester.pumpWidget(_harness(_FakePatientRepo()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('History'));
+    // 'History' now appears both as a Home quick-tile and the nav label —
+    // tap the bottom-nav destination by its (unselected) icon to disambiguate.
+    await tester.tap(find.byIcon(Icons.history_outlined));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Seasonal allergic rhinitis'), findsOneWidget);

@@ -4,14 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
 import '../../shared/sound/notification_sound.dart';
+import '../../shared/widgets/pop_icon.dart';
 import '../../shared/widgets/theme_toggle_button.dart';
-import '../consent/privacy_tab.dart';
 import '../diagnostics/test_orders_view.dart';
 import '../notifications/notifications_controller.dart';
 import '../notifications/notifications_screen.dart';
 import 'book_appointment_tab.dart';
 import 'history_tab.dart';
-import 'profile_tab.dart';
+import 'home_tab.dart';
 
 /// Patient app shell (Section 5.1). Bottom navigation (UI brief §3): 5
 /// thumb-reachable destinations with icon + label. An [IndexedStack] keeps each
@@ -33,41 +33,37 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
   // so a tab's data isn't loaded until the user opens it.
   final _visited = <int>{0};
 
-  static const _titles = ['Profile', 'Book', 'History', 'Tests', 'Privacy'];
+  // Home shows an empty app-bar title (the greeting lives in the body).
+  // Privacy moved under Profile (Home header avatar), so the bar is 4 tabs —
+  // which also keeps the selected pill from crowding Home off the edge.
+  static const _titles = ['', 'Book', 'History', 'Tests'];
 
-  static const _tabs = [
-    ProfileTab(),
-    BookAppointmentTab(),
-    HistoryTab(),
-    TestOrdersView(), // my own orders (patientId null → RLS scopes)
-    PrivacyTab(),
-  ];
+  void _select(int i) => setState(() {
+        _index = i;
+        _visited.add(i);
+      });
 
+  // selectedIcon is a PopIcon so the active tab's icon animates on arrival.
   static const _destinations = [
     NavigationDestination(
-      icon: Icon(Icons.person_outline),
-      selectedIcon: Icon(Icons.person),
-      label: 'Profile',
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: PopIcon(Icons.home),
+      label: 'Home',
     ),
     NavigationDestination(
       icon: Icon(Icons.event_outlined),
-      selectedIcon: Icon(Icons.event),
+      selectedIcon: PopIcon(Icons.event),
       label: 'Book',
     ),
     NavigationDestination(
       icon: Icon(Icons.history_outlined),
-      selectedIcon: Icon(Icons.history),
+      selectedIcon: PopIcon(Icons.history),
       label: 'History',
     ),
     NavigationDestination(
       icon: Icon(Icons.science_outlined),
-      selectedIcon: Icon(Icons.science),
+      selectedIcon: PopIcon(Icons.science),
       label: 'Tests',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.shield_outlined),
-      selectedIcon: Icon(Icons.shield),
-      label: 'Privacy',
     ),
   ];
 
@@ -83,6 +79,14 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
         playNotificationBeep();
       }
     });
+
+    // Home gets a callback so its feature tiles switch the bottom-nav tab.
+    final tabs = <Widget>[
+      HomeTab(onNavigate: _select),
+      const BookAppointmentTab(),
+      const HistoryTab(),
+      const TestOrdersView(), // my own orders (patientId null → RLS scopes)
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -114,8 +118,8 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       body: IndexedStack(
         index: _index,
         children: [
-          for (var i = 0; i < _tabs.length; i++)
-            _visited.contains(i) ? _tabs[i] : const SizedBox.shrink(),
+          for (var i = 0; i < tabs.length; i++)
+            _visited.contains(i) ? tabs[i] : const SizedBox.shrink(),
         ],
       ),
       // Floating pill nav (reskin, reference #3): the bar sits inset from the
@@ -137,10 +141,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
             borderRadius: BorderRadius.circular(24),
             child: NavigationBar(
               selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() {
-                _index = i;
-                _visited.add(i);
-              }),
+              onDestinationSelected: _select,
               destinations: _destinations,
             ),
           ),
