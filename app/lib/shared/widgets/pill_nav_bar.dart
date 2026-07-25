@@ -4,9 +4,16 @@ import '../../core/theme/design_tokens.dart';
 
 /// One destination in [PillNavBar].
 class PillNavItem {
-  const PillNavItem({required this.icon, required this.label});
+  const PillNavItem({
+    required this.icon,
+    required this.label,
+    this.badgeCount = 0,
+  });
   final IconData icon;
   final String label;
+
+  /// Optional count bubble on the icon (0 = none), e.g. pending access requests.
+  final int badgeCount;
 }
 
 /// The app's floating bottom navigation — a rounded white bar. Every
@@ -116,10 +123,14 @@ class _NavItem extends StatelessWidget {
                 scale: selected ? 1.1 : 1.0,
                 duration: AppMotion.normal,
                 curve: Curves.easeOut,
-                child: Icon(
-                  item.icon,
-                  size: 22,
-                  color: selected ? Colors.white : rest,
+                child: Badge(
+                  isLabelVisible: item.badgeCount > 0,
+                  label: Text('${item.badgeCount}'),
+                  child: Icon(
+                    item.icon,
+                    size: 22,
+                    color: selected ? Colors.white : rest,
+                  ),
                 ),
               ),
             ),

@@ -42,6 +42,16 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
     });
   }
 
+  /// Return to the Today dashboard from anywhere in this tab (clears both the
+  /// open record and the search results).
+  void _backToToday() {
+    _query.clear();
+    setState(() {
+      _selected = null;
+      _results = null;
+    });
+  }
+
   /// From the dashboard's next-patient/queue cards: the queue RPC gives us a
   /// name, not an id — so prefill the search box and run a scoped search rather
   /// than deep-linking. If it resolves to exactly one patient, open them.
@@ -145,15 +155,35 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
           controller: _query,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _search(),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Search by name, phone, or ABHA',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.search),
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.search),
+            // Clearing the search is the way back to the Today dashboard.
+            suffixIcon: _results == null
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    icon: const Icon(Icons.close),
+                    onPressed: _backToToday,
+                  ),
           ),
         ),
         const SizedBox(height: 12),
         FilledButton(onPressed: _search, child: const Text('Search')),
         const SizedBox(height: 16),
+        // Results replace the dashboard, so offer an explicit way back to it.
+        if (_results != null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _backToToday,
+              icon: const Icon(Icons.arrow_back, size: 18),
+              label: const Text('Back to Today'),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
         Expanded(
           child: _results == null
               ? DoctorDashboard(scope: widget.scope, onOpenByName: _openByName)
@@ -209,12 +239,20 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
           Row(
             children: [
               IconButton(
+                // Back to the results that led here, or straight to Today when
+                // the record was opened from the dashboard/consent code.
+                tooltip: _results == null ? 'Back to Today' : 'Back to results',
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => setState(() => _selected = null),
               ),
               Expanded(
                 child: Text(p.name, style: Theme.of(context).textTheme.titleMedium),
               ),
+              if (_results != null)
+                TextButton(
+                  onPressed: _backToToday,
+                  child: const Text('Today'),
+                ),
             ],
           ),
           const TabBar(tabs: [

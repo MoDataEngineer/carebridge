@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/breakpoints.dart';
 import '../../../shared/models/enums.dart';
+import '../../../shared/widgets/pill_nav_bar.dart';
 import '../../doctor/appointments_repository.dart';
 import '../../doctor/appointments_screen.dart';
 import '../../doctor/doctor_models.dart';
@@ -147,36 +148,20 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
 
     return Scaffold(
       body: content,
-      // Floating pill nav (reskin) — mirrors the patient shell.
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: select,
-              destinations: [
-                for (final d in destinations)
-                  NavigationDestination(
-                    icon: _destIcon(d, d.icon, pending),
-                    selectedIcon: _destIcon(d, d.selectedIcon, pending),
-                    label: d.label,
-                  ),
-              ],
+      // Same custom pill nav as the patient shell: every destination keeps its
+      // icon AND label (Material's NavigationBar hid labels and intermittently
+      // dropped the first destination inside the rounded clip).
+      bottomNavigationBar: PillNavBar(
+        currentIndex: index,
+        onTap: select,
+        items: [
+          for (final d in destinations)
+            PillNavItem(
+              icon: d.icon,
+              label: d.label,
+              badgeCount: d.label == 'Appointments' ? pending : 0,
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
