@@ -1,9 +1,19 @@
 # Epic: Wearables & Vitals Tracking
 
-> **Status: PLANNED (D14, 2026-07-23). Nothing here is built yet.** This is the
-> authoritative design record for a post-MVP module (Phases 12+). Each phase
-> returns for its own approval before any code is written. Companion records:
-> `DECISIONS.md` D14, `PROJECT_BRIEF.md` §13, `CLAUDE.md`/`AGENTS.md` §15.
+> **Status: Phase 12 BUILT (2026-07-25); Phases 13–14 planned.** This is the
+> authoritative design record for a post-MVP module. Each phase returns for its
+> own approval before any code is written. Companion records: `DECISIONS.md`
+> D14, `PROJECT_BRIEF.md` §13, `CLAUDE.md`/`AGENTS.md` §15.
+>
+> **P12 build note.** Data model (`0034`/`0035`), the `current_scope_can_view_wearables()`
+> helper, patient RLS + the `wearable` share/revoke RPCs, and the patient's
+> standalone daily view + connect flow (`app/lib/features/vitals/`, Vitals nav
+> tab) are in the repo. The daily view ships against a **demo data source**
+> (`DemoVitalsRepository`) so it is usable/verifiable now; the **real on-device
+> sync** — the `health` plugin reading HealthKit/Health Connect into
+> `SupabaseVitalsRepository` — is the remaining P12 step and needs (a) a new
+> dependency decision (§12) and (b) a physical-device build to verify. Migrations
+> `0034`/`0035` are written but **not yet deployed** (`supabase db push`).
 
 ## Two independent goals
 

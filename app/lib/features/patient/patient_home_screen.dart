@@ -9,6 +9,7 @@ import '../../shared/widgets/theme_toggle_button.dart';
 import '../diagnostics/test_orders_view.dart';
 import '../notifications/notifications_controller.dart';
 import '../notifications/notifications_screen.dart';
+import '../vitals/vitals_tab.dart';
 import 'book_appointment_tab.dart';
 import 'history_tab.dart';
 import 'home_tab.dart';
@@ -36,7 +37,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
   // Home shows an empty app-bar title (the greeting lives in the body).
   // Privacy moved under Profile (Home header avatar), so the bar is 4 tabs —
   // which also keeps the selected pill from crowding Home off the edge.
-  static const _titles = ['', 'Book', 'History', 'Tests'];
+  static const _titles = ['', 'Book', 'History', 'Tests', 'Vitals'];
 
   void _select(int i) => setState(() {
         _index = i;
@@ -52,6 +53,9 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
     PillNavItem(icon: Icons.event_outlined, label: 'Book'),
     PillNavItem(icon: Icons.history_outlined, label: 'History'),
     PillNavItem(icon: Icons.science_outlined, label: 'Tests'),
+    // Filled heart — the outlined/monitor_heart glyphs paint blank in this
+    // project's icon subset (same reason Home uses the filled home glyph).
+    PillNavItem(icon: Icons.favorite, label: 'Vitals'),
   ];
 
   @override
@@ -73,6 +77,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       const BookAppointmentTab(),
       const HistoryTab(),
       const TestOrdersView(), // my own orders (patientId null → RLS scopes)
+      const VitalsTab(),
     ];
 
     return Scaffold(
