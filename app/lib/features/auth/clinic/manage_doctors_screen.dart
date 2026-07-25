@@ -3,6 +3,7 @@ import '../../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/theme/design_tokens.dart';
 import '../../../shared/constants/medical_specialties.dart';
 import '../../../shared/widgets/brand_avatar.dart';
 import '../../../shared/widgets/responsive_scaffold.dart';
@@ -334,10 +335,11 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
             icon: const Icon(Icons.person_add),
             label: const Text('Add doctor'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.lg),
           // Hospital branding: uploadable logo, shown to patients when booking.
-          Card(
+          _surface(
             child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               leading: BrandAvatar(
                   name: ref.watch(clinicSessionControllerProvider)
                           .login?.clinicName ?? 'Clinic',
@@ -352,7 +354,9 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xl),
+          _sectionKicker(context, 'Doctors'),
+          const SizedBox(height: AppSpacing.sm),
           if (_docs == null)
             const Padding(
               padding: EdgeInsets.all(24),
@@ -375,12 +379,37 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
     );
   }
 
+  /// Flat surface card with a hairline border — the app's card idiom (matches
+  /// the history/appointments/dashboard cards), replacing Material elevation.
+  Widget _surface({required Widget child, Color? color}) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: color ?? scheme.surface,
+        borderRadius: AppRadii.rCard,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _sectionKicker(BuildContext context, String label) {
+    return Text(label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ));
+  }
+
   Widget _doctorCard(DoctorSummary d) {
     final inactive = !d.isActive;
-    final subtitle = d.specialty.isEmpty
-        ? 'Tap the avatar to add a photo'
-        : '${d.specialty} · tap the avatar to add a photo';
-    return Card(
+    final subtitle = inactive
+        ? 'Not shown for booking or sign-in'
+        : (d.specialty.isEmpty ? 'Specialty not set' : d.specialty);
+    return _surface(
       // Deactivated doctors read as muted so the roster shows status at a glance.
       color: inactive
           ? Theme.of(context).colorScheme.surfaceContainerHighest
@@ -388,23 +417,31 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
       child: Opacity(
         opacity: inactive ? 0.6 : 1,
         child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
           // Doctor photo (uploadable; initials until one is set). Disabled while
           // deactivated — restore first to edit branding.
-          leading: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: inactive ? null : () => _uploadImage(doctorId: d.id),
-            child: BrandAvatar(name: d.name, imageUrl: _branding.photos[d.id]),
+          leading: Tooltip(
+            message: inactive ? '' : 'Tap to add a photo',
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: inactive ? null : () => _uploadImage(doctorId: d.id),
+              child: BrandAvatar(name: d.name, imageUrl: _branding.photos[d.id]),
+            ),
           ),
           title: Row(
             children: [
               Flexible(child: Text(d.name)),
+              if (d.hprId != null && d.hprId!.isNotEmpty && !inactive) ...[
+                const SizedBox(width: 8),
+                _pill(context, 'HPR linked', tone: _PillTone.info),
+              ],
               if (inactive) ...[
                 const SizedBox(width: 8),
                 _pill(context, 'Deactivated'),
               ],
             ],
           ),
-          subtitle: Text(inactive ? 'Not shown for booking or sign-in' : subtitle),
+          subtitle: Text(subtitle),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -439,22 +476,29 @@ class _ManageDoctorsScreenState extends ConsumerState<ManageDoctorsScreen> {
     );
   }
 
-  Widget _pill(BuildContext context, String label) {
+  Widget _pill(BuildContext context, String label,
+      {_PillTone tone = _PillTone.error}) {
     final scheme = Theme.of(context).colorScheme;
+    final (bg, fg) = switch (tone) {
+      _PillTone.error => (scheme.errorContainer, scheme.onErrorContainer),
+      _PillTone.info => (AppColors.tintMint, AppColors.brand700),
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: scheme.errorContainer,
+        color: bg,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(label,
           style: Theme.of(context)
               .textTheme
               .labelSmall
-              ?.copyWith(color: scheme.onErrorContainer)),
+              ?.copyWith(color: fg, fontWeight: FontWeight.w600)),
     );
   }
 }
+
+enum _PillTone { error, info }
 
 /// Values captured by the shared add/edit doctor form.
 class _DoctorFormResult {
