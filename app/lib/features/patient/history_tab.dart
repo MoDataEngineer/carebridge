@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/skeleton_loader.dart';
+import '../../shared/widgets/visit_history_card.dart';
 import 'patient_models.dart';
 import 'patient_repository.dart';
 
@@ -47,65 +48,11 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
           );
         }
         return ListView.builder(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           itemCount: visits.length,
-          itemBuilder: (context, i) => _VisitCard(visit: visits[i]),
+          itemBuilder: (context, i) => VisitHistoryCard(visit: visits[i]),
         );
       },
-    );
-  }
-}
-
-class _VisitCard extends StatelessWidget {
-  const _VisitCard({required this.visit});
-  final VisitRecord visit;
-
-  @override
-  Widget build(BuildContext context) {
-    final d = visit.visitDate;
-    final dateStr = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.event_note, size: 18),
-                const SizedBox(width: 6),
-                Text(dateStr, style: Theme.of(context).textTheme.titleSmall),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text('Diagnosis: ${visit.diagnosis ?? '—'}'),
-            if (visit.notes != null && visit.notes!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text('Notes: ${visit.notes}',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ],
-            if (visit.prescriptions.isNotEmpty) ...[
-              const Divider(height: 18),
-              Text('Prescriptions', style: Theme.of(context).textTheme.labelLarge),
-              for (final p in visit.prescriptions)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '• ${p.drugName}'
-                    '${p.dosage != null ? ' ${p.dosage}' : ''} '
-                    '— ${p.scheduleLabel}'
-                    '${p.durationDays != null ? ' · ${p.durationDays}d' : ''}',
-                  ),
-                ),
-            ],
-            if (visit.followUpDate != null) ...[
-              const SizedBox(height: 6),
-              Text('Follow-up advised: ${visit.followUpDate!.toIso8601String().split('T').first}',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }

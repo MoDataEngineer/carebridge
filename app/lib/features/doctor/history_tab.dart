@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/visit_history_card.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
 
@@ -44,44 +45,9 @@ class HistoryTabState extends ConsumerState<HistoryTab> {
           return const Center(child: Text('No visits recorded yet.'));
         }
         return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           itemCount: visits.length,
-          itemBuilder: (context, i) {
-            final v = visits[i];
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(v.visitDate.toString().substring(0, 10),
-                        style: Theme.of(context).textTheme.labelSmall),
-                    Text(v.diagnosis ?? '(no diagnosis)',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    if (v.notes != null && v.notes!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(v.notes!),
-                    ],
-                    for (final rx in v.prescriptions)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '• ${rx.drugName}'
-                          '${rx.dosage != null ? ' ${rx.dosage}' : ''}'
-                          ' · ${rx.scheduleLabel}'
-                          '${rx.durationDays != null ? ' · ${rx.durationDays}d' : ''}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    if (v.followUpDate != null) ...[
-                      const SizedBox(height: 4),
-                      Text('Follow-up: ${v.followUpDate!.toString().substring(0, 10)}',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
+          itemBuilder: (context, i) => VisitHistoryCard(visit: visits[i]),
         );
       },
     );
