@@ -95,7 +95,9 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
           label: 'Follow-ups',
           icon: Icons.event_repeat_outlined,
           selectedIcon: Icons.event_repeat,
-          body: scope.paid ? const FollowUpsScreen() : const UpgradeScreen(),
+          body: scope.paid
+              ? FollowUpsScreen(onOpenPatient: _openPatientInWorkspace)
+              : const UpgradeScreen(),
         ),
       if (scope.role == ActiveRole.admin)
         const _ShellDestination(

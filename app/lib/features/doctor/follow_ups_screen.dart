@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/design_tokens.dart';
 import '../../shared/widgets/theme_toggle_button.dart';
 import '../auth/clinic/clinic_sign_out_button.dart';
 import 'paid_tools_repository.dart';
@@ -10,7 +11,11 @@ import 'paid_tools_repository.dart';
 /// open follow-up due within a week or overdue; one-tap reminder + mark done.
 /// The DB enforces tier, ownership, and AC-9 on every action.
 class FollowUpsScreen extends ConsumerStatefulWidget {
-  const FollowUpsScreen({super.key});
+  const FollowUpsScreen({super.key, this.onOpenPatient});
+
+  /// Tapping a row opens that patient's record in the Patients tab (shell-wired,
+  /// same as the live queue). FollowUpItem carries the name we hand back.
+  final void Function(String patientName)? onOpenPatient;
 
   @override
   ConsumerState<FollowUpsScreen> createState() => _FollowUpsScreenState();
@@ -89,62 +94,101 @@ class _FollowUpsScreenState extends ConsumerState<FollowUpsScreen> {
                         ),
                       ])
                     : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                         itemCount: _items!.length,
-                        itemBuilder: (context, i) {
-                          final f = _items![i];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(children: [
-                                    Expanded(
-                                      child: Text(f.patientName,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall),
-                                    ),
-                                    Chip(
-                                      label: Text(f.overdue
-                                          ? 'Overdue'
-                                          : 'Due ${f.dueDate.toString().substring(0, 10)}'),
-                                      visualDensity: VisualDensity.compact,
-                                      backgroundColor: f.overdue
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .errorContainer
-                                          : null,
-                                    ),
-                                  ]),
-                                  if (f.diagnosis != null)
-                                    Text(f.diagnosis!,
-                                        style:
-                                            Theme.of(context).textTheme.bodySmall),
-                                  const SizedBox(height: 8),
-                                  Row(children: [
-                                    TextButton.icon(
-                                      onPressed: () => _remind(f),
-                                      icon: const Icon(Icons.notifications_active,
-                                          size: 18),
-                                      label: const Text('Send reminder'),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    TextButton.icon(
-                                      onPressed: () => _done(f),
-                                      icon: const Icon(Icons.check, size: 18),
-                                      label: const Text('Mark done'),
-                                    ),
-                                  ]),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        itemBuilder: (context, i) => _followUpCard(_items![i]),
                       ),
       ),
+    );
+  }
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+  String _fmt(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+  Widget _followUpCard(FollowUpItem f) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: AppRadii.rCard,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: InkWell(
+        onTap: widget.onOpenPatient == null
+            ? null
+            : () => widget.onOpenPatient!(f.patientName),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(f.patientName,
+                        style: text.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                  ),
+                  _duePill(f),
+                ],
+              ),
+              if (f.diagnosis != null && f.diagnosis!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(f.diagnosis!,
+                    style: text.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant)),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _remind(f),
+                    icon: const Icon(Icons.notifications_active, size: 18),
+                    label: const Text('Send reminder'),
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(44, 40)),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => _done(f),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Mark done'),
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size(44, 40)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "Overdue" (red tint) or "Due <date>" (mint tint) — colour + text, no glyph.
+  Widget _duePill(FollowUpItem f) {
+    final scheme = Theme.of(context).colorScheme;
+    final (String label, Color bg, Color fg) = f.overdue
+        ? ('Overdue', scheme.errorContainer, scheme.onErrorContainer)
+        : ('Due ${_fmt(f.dueDate)}', AppColors.tintMint, AppColors.brand700);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+      ),
+      child: Text(label,
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall
+              ?.copyWith(color: fg, fontWeight: FontWeight.w600)),
     );
   }
 }
