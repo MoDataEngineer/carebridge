@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../shared/widgets/pills_loader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../shared/models/enums.dart';
 import '../../shared/widgets/theme_toggle_button.dart';
 import '../auth/clinic/clinic_sign_out_button.dart';
@@ -120,7 +122,7 @@ class _LiveQueueScreenState extends ConsumerState<LiveQueueScreen> {
           : entries.isEmpty
               ? const Center(child: Text('No appointments today.'))
               : ListView(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                   children: [
                     for (final e in entries) _entryTile(e, isAdmin),
                   ],
@@ -129,27 +131,106 @@ class _LiveQueueScreenState extends ConsumerState<LiveQueueScreen> {
   }
 
   Widget _entryTile(QueueEntry e, bool isAdmin) {
-    final (icon, label) = switch (e.status) {
-      'in_consultation' => (Icons.meeting_room, 'In consultation'),
-      'waiting' => (Icons.hourglass_top, 'Waiting'),
-      'completed' => (Icons.check_circle_outline, 'Done'),
-      _ => (Icons.event, 'Scheduled'),
+    final scheme = Theme.of(context).colorScheme;
+    final s = AppStatusColors.of(context);
+    // Status → label + colour. Rendered as a text chip with a colour dot (no
+    // icon), so it never depends on a glyph that might not be in the subset.
+    final (String label, Color color) = switch (e.status) {
+      'in_consultation' => ('In consultation', scheme.primary),
+      'waiting' => ('Waiting', s.info),
+      'completed' => ('Done', s.success),
+      _ => ('Scheduled', s.warning),
     };
     final time = TimeOfDay.fromDateTime(e.scheduledTime.toLocal()).format(context);
-    return Card(
-      child: ListTile(
-        leading: e.queuePosition != null
-            ? CircleAvatar(child: Text('${e.queuePosition}'))
-            : Icon(icon),
-        title: Text(e.patientName),
-        subtitle: Text(
-            '$label · $time${isAdmin ? ' · ${e.doctorName}' : ''}'),
-        trailing: e.status == 'scheduled'
-            ? TextButton(
-                onPressed: _busy ? null : () => _checkIn(e),
-                child: const Text('Check in'),
-              )
-            : null,
+    final text = Theme.of(context).textTheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: AppRadii.rCard,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          // Token badge (mint circle) once checked in; a clock circle while
+          // still only scheduled.
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.tintMint,
+              shape: BoxShape.circle,
+            ),
+            child: e.queuePosition != null
+                ? Text('${e.queuePosition}',
+                    style: text.titleMedium?.copyWith(
+                        color: AppColors.brand700, fontWeight: FontWeight.w800))
+                : const Icon(Icons.schedule, size: 20, color: AppColors.brand700),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(e.patientName,
+                    style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    _statusChip(label, color),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        '$time${isAdmin ? ' · ${e.doctorName}' : ''}',
+                        overflow: TextOverflow.ellipsis,
+                        style: text.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (e.status == 'scheduled')
+            FilledButton.tonal(
+              onPressed: _busy ? null : () => _checkIn(e),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(44, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+              ),
+              child: const Text('Check in'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// A colour-dot + label chip — status conveyed by colour AND text (§5), never
+  /// colour alone, and with no glyph dependency.
+  Widget _statusChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
