@@ -245,8 +245,8 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
   Widget _sessionPicker() {
     if (_loadingSessions) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: LinearProgressIndicator(),
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: PillsLoader(size: 28)),
       );
     }
     final sessions = _sessions;
@@ -348,7 +348,10 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
           future: _doctors,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
-              return const LinearProgressIndicator();
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: PillsLoader(size: 28)),
+              );
             }
             final docs = snap.data ?? const [];
             if (docs.isEmpty) return const Text('No doctors available to book yet.');
@@ -541,7 +544,10 @@ class _BookAppointmentTabState extends ConsumerState<BookAppointmentTab> {
         Text('Your appointments', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         if (_apptsLoading)
-          const LinearProgressIndicator()
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: PillsLoader(size: 28)),
+          )
         else if (_appts.isEmpty)
           const Text('No appointments yet.')
         else

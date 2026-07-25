@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/fade_slide_in.dart';
+import '../../shared/widgets/pills_loader.dart';
 import 'summary_models.dart';
 import 'summary_repository.dart';
 
@@ -49,7 +50,7 @@ class _PatientSummaryTabState extends ConsumerState<PatientSummaryTab> {
             if (snap.connectionState != ConnectionState.done) {
               return const Padding(
                 padding: EdgeInsets.all(16),
-                child: LinearProgressIndicator(),
+                child: Center(child: PillsLoader(size: 28)),
               );
             }
             final b = snap.data ?? const SafetyBanner();

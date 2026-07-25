@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/code_qr.dart';
 import '../../shared/widgets/empty_state.dart';
+import '../../shared/widgets/pills_loader.dart';
 import '../../shared/widgets/skeleton_loader.dart';
 import '../../shared/widgets/status_pill.dart';
 import '../../shared/widgets/vital_tile.dart';
@@ -314,8 +315,8 @@ class _ReportViewState extends ConsumerState<_ReportView> {
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
                 return const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: LinearProgressIndicator(),
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: PillsLoader(size: 32)),
                 );
               }
               if (snap.hasError) {
