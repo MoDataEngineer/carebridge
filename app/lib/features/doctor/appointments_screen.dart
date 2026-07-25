@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../shared/models/enums.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/skeleton_loader.dart';
@@ -176,9 +177,13 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
       if (day != lastDay) {
         lastDay = day;
         widgets.add(Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
-          child: Text(_dayLabel(a.scheduledTime),
-              style: Theme.of(context).textTheme.titleSmall),
+          padding: EdgeInsets.fromLTRB(4, widgets.isEmpty ? 4 : 20, 4, 8),
+          child: Text(_dayLabel(a.scheduledTime).toUpperCase(),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  )),
         ));
       }
       widgets.add(_ApptCard(appt: a, onApprove: () => _approve(a), onReject: () => _reject(a)));
@@ -186,13 +191,18 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
     return widgets;
   }
 
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
   String _dayLabel(DateTime d) {
     final now = DateTime.now();
     final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
     final tomorrow = now.add(const Duration(days: 1));
     final isTomorrow =
         d.year == tomorrow.year && d.month == tomorrow.month && d.day == tomorrow.day;
-    final base = d.toString().substring(0, 10);
+    final base = '${d.day} ${_months[d.month - 1]} ${d.year}';
     if (isToday) return 'Today · $base';
     if (isTomorrow) return 'Tomorrow · $base';
     return base;
@@ -205,45 +215,68 @@ class _ApptCard extends StatelessWidget {
   final VoidCallback onApprove;
   final VoidCallback onReject;
 
+  /// "09:30" (24h from the timestamp) -> "9:30 AM".
+  String _time(DateTime t) {
+    final h = t.hour == 0 ? 12 : (t.hour > 12 ? t.hour - 12 : t.hour);
+    final m = t.minute.toString().padLeft(2, '0');
+    return '$h:$m ${t.hour < 12 ? 'AM' : 'PM'}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final time = appt.scheduledTime.toString().substring(11, 16);
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     final sub = [
-      time,
       if (appt.sessionLabel != null && appt.sessionLabel!.isNotEmpty) appt.sessionLabel!,
       appt.doctorName,
     ].join(' · ');
     final closed = appt.status == 'completed';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(appt.patientName,
-                      style: Theme.of(context).textTheme.titleSmall),
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: AppRadii.rCard,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Time chip — soft mint pill so the slot reads at a glance.
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.tintMint,
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
                 ),
-                _ApptStatusPill(appt.status),
-              ],
-            ),
-            Text(sub, style: Theme.of(context).textTheme.bodySmall),
-            if (appt.patientPhone != null && appt.patientPhone!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Row(
-                  children: [
-                    Icon(Icons.phone, size: 14,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 4),
-                    SelectableText(appt.patientPhone!,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
+                child: Text(_time(appt.scheduledTime),
+                    style: text.labelMedium?.copyWith(
+                        color: AppColors.brand700, fontWeight: FontWeight.w600)),
               ),
-            if (!closed) ...[
+              const Spacer(),
+              _ApptStatusPill(appt.status),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(appt.patientName,
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          if (sub.isNotEmpty)
+            Text(sub, style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          if (appt.patientPhone != null && appt.patientPhone!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.phone, size: 14, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  SelectableText(appt.patientPhone!,
+                      style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          if (!closed) ...[
               const SizedBox(height: 8),
               // The app theme sets minimumSize: Size.fromHeight(52) — INFINITE
               // min width. Fine where parents bound width (ListView/stretched
@@ -276,8 +309,7 @@ class _ApptCard extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
+      );
   }
 }
 
