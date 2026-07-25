@@ -9,6 +9,7 @@ import '../diagnostics/test_orders_view.dart';
 import '../summary/summary_tab.dart';
 import 'access_flow_dialogs.dart';
 import 'add_visit_form.dart';
+import 'doctor_dashboard.dart';
 import 'doctor_models.dart';
 import 'doctor_repository.dart';
 import 'history_tab.dart';
@@ -39,6 +40,27 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
       _selected = null;
       _results = ref.read(doctorRepositoryProvider).searchPatients(_query.text);
     });
+  }
+
+  /// From the dashboard's next-patient/queue cards: the queue RPC gives us a
+  /// name, not an id — so prefill the search box and run a scoped search rather
+  /// than deep-linking. If it resolves to exactly one patient, open them.
+  Future<void> _openByName(String name) async {
+    _query.text = name;
+    final future = ref.read(doctorRepositoryProvider).searchPatients(name);
+    setState(() {
+      _selected = null;
+      _results = future;
+    });
+    final matches = await future;
+    if (!mounted) return;
+    if (matches.length == 1) {
+      setState(() => _selected = matches.first);
+      ref
+          .read(doctorRepositoryProvider)
+          .logView(matches.first.id, 'patient record opened (queue)')
+          .catchError((_) {});
+    }
   }
 
   /// After a consent code is redeemed we already know the patient id — open
@@ -134,7 +156,7 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
         const SizedBox(height: 16),
         Expanded(
           child: _results == null
-              ? const Center(child: Text('Search for a patient to begin.'))
+              ? DoctorDashboard(scope: widget.scope, onOpenByName: _openByName)
               : FutureBuilder<List<PatientSearchResult>>(
                   future: _results,
                   builder: (context, snap) {
