@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../shared/models/enums.dart';
+import '../../shared/widgets/brand_avatar.dart';
 import '../../shared/widgets/pills_loader.dart';
 import '../../shared/widgets/stat_card.dart';
+import '../auth/clinic/clinic_models.dart';
+import '../auth/clinic/session_controller.dart';
 import 'doctor_models.dart';
 import 'paid_tools_repository.dart';
 import 'queue_repository.dart';
@@ -36,11 +41,24 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
   List<QueueEntry> _queue = const [];
   int? _followUpsDue; // null when free tier or unavailable
   bool _loading = true;
+  StreamSubscription<void>? _sub;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // Keep the counts live: every appointment change (check-in, call-next,
+    // completion, a new booking) refetches so "Waiting now" / "Booked today"
+    // never go stale while the doctor sits on this tab.
+    try {
+      _sub = ref.read(queueRepositoryProvider).changes().listen((_) => _load());
+    } catch (_) {/* no Supabase (widget test) — counts stay at first load */}
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -92,6 +110,123 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
     return scheduled.isEmpty ? null : scheduled.first;
   }
 
+  /// The signed-in identity — avatar + name + specialty/role — so a doctor can
+  /// see at a glance whose session they're in (D2 sessions are per-doctor).
+  /// Tapping it opens the doctor's profile details.
+  ({String name, String sub, DoctorSummary? doctor}) _identity() {
+    // Guarded: the session controller needs Supabase, absent in widget tests.
+    ClinicSessionState? session;
+    try {
+      session = ref.watch(clinicSessionControllerProvider);
+    } catch (_) {
+      session = null;
+    }
+    if (widget.scope.role == ActiveRole.admin) {
+      return (
+        name: session?.login?.clinicName ?? 'Clinic Admin',
+        sub: 'Clinic Admin · viewing all doctors',
+        doctor: null,
+      );
+    }
+    DoctorSummary? me;
+    for (final d in session?.login?.doctors ?? const <DoctorSummary>[]) {
+      if (d.id == widget.scope.doctorId) {
+        me = d;
+        break;
+      }
+    }
+    return (
+      name: me?.name ?? 'Doctor',
+      sub: (me?.specialty.isNotEmpty ?? false) ? me!.specialty : 'Doctor',
+      doctor: me,
+    );
+  }
+
+  Widget _identityHeader(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final id = _identity();
+    return InkWell(
+      borderRadius: AppRadii.rCard,
+      onTap: id.doctor == null ? null : () => _showProfile(id.doctor!),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            BrandAvatar(name: id.name),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(id.name,
+                      style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                  Text(id.sub,
+                      style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            if (id.doctor != null)
+              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showProfile(DoctorSummary d) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final text = Theme.of(ctx).textTheme;
+        Widget row(String label, String? value) => value == null || value.isEmpty
+            ? const SizedBox.shrink()
+            : Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                        width: 130,
+                        child: Text(label,
+                            style: text.labelMedium?.copyWith(
+                                color: Theme.of(ctx).colorScheme.onSurfaceVariant))),
+                    Expanded(child: Text(value, style: text.bodyMedium)),
+                  ],
+                ),
+              );
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    BrandAvatar(name: d.name),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(d.name,
+                          style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                row('Specialty', d.specialty),
+                row('Council reg. no.', d.councilRegNumber),
+                row('Council', d.councilName),
+                row('HPR ID', d.hprId),
+                row('Mobile', d.phone),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: PillsLoader());
@@ -103,6 +238,8 @@ class _DoctorDashboardState extends ConsumerState<DoctorDashboard> {
       onRefresh: _load,
       child: ListView(
         children: [
+          _identityHeader(context),
+          const SizedBox(height: AppSpacing.lg),
           Text('Today', style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
           Text(
             adminWide ? 'Across all doctors in the clinic' : 'Your queue',

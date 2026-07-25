@@ -33,6 +33,20 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
   // (queue realtime, roster, follow-ups) isn't loaded until it's opened.
   final _visited = <int>{0};
 
+  // Lets other tabs (the live queue) drive the Patients tab: switch to it and
+  // open a patient record, mirroring the dashboard's "Open record".
+  final _workspaceKey = GlobalKey<DoctorWorkspaceScreenState>();
+
+  void _openPatientInWorkspace(String name) {
+    setState(() {
+      _index = 0;
+      _visited.add(0);
+    });
+    // The workspace may be first-building this frame — open after it mounts.
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _workspaceKey.currentState?.openByName(name));
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(clinicSessionControllerProvider);
@@ -59,7 +73,7 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
         label: 'Patients',
         icon: Icons.people_outline,
         selectedIcon: Icons.people,
-        body: DoctorWorkspaceScreen(scope: scope),
+        body: DoctorWorkspaceScreen(key: _workspaceKey, scope: scope),
       ),
       const _ShellDestination(
         label: 'Appointments',
@@ -71,7 +85,9 @@ class _ClinicShellState extends ConsumerState<ClinicShell> {
         label: 'Queue',
         icon: Icons.confirmation_number_outlined,
         selectedIcon: Icons.confirmation_number,
-        body: scope.paid ? LiveQueueScreen(scope: scope) : const UpgradeScreen(),
+        body: scope.paid
+            ? LiveQueueScreen(scope: scope, onOpenPatient: _openPatientInWorkspace)
+            : const UpgradeScreen(),
       ),
       // Fourth slot is role-specific — same bar, scope-appropriate destination.
       if (scope.canWrite)

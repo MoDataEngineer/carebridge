@@ -19,8 +19,14 @@ import 'queue_repository.dart';
 /// Updates arrive via Supabase Realtime — each change signal refetches the
 /// queue (Section 10: seconds, not polling).
 class LiveQueueScreen extends ConsumerStatefulWidget {
-  const LiveQueueScreen({super.key, required this.scope});
+  const LiveQueueScreen({super.key, required this.scope, this.onOpenPatient});
   final DoctorScope scope;
+
+  /// Tapping a queue row opens that patient's record in the Patients tab
+  /// (the shell wires this up). The queue RPC returns names, not ids, so we
+  /// hand back the name — the workspace resolves it the same way the dashboard
+  /// does.
+  final void Function(String patientName)? onOpenPatient;
 
   @override
   ConsumerState<LiveQueueScreen> createState() => _LiveQueueScreenState();
@@ -146,14 +152,22 @@ class _LiveQueueScreenState extends ConsumerState<LiveQueueScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: scheme.surface,
         borderRadius: AppRadii.rCard,
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
-      child: Row(
-        children: [
+      child: InkWell(
+        // Any row opens the patient's full record (like "Open record" in the
+        // Patients tab) — useful once they're in consultation or done.
+        onTap: widget.onOpenPatient == null
+            ? null
+            : () => widget.onOpenPatient!(e.patientName),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
           // Token badge (mint circle) once checked in; a clock circle while
           // still only scheduled.
           Container(
@@ -195,16 +209,24 @@ class _LiveQueueScreenState extends ConsumerState<LiveQueueScreen> {
               ],
             ),
           ),
-          if (e.status == 'scheduled')
-            FilledButton.tonal(
-              onPressed: _busy ? null : () => _checkIn(e),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(44, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-              ),
-              child: const Text('Check in'),
-            ),
-        ],
+              if (e.status == 'scheduled')
+                FilledButton.tonal(
+                  onPressed: _busy ? null : () => _checkIn(e),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(44, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                  ),
+                  child: const Text('Check in'),
+                ),
+              if (widget.onOpenPatient != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(Icons.chevron_right,
+                      color: scheme.onSurfaceVariant),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

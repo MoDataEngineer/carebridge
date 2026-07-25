@@ -26,10 +26,10 @@ class DoctorWorkspaceScreen extends ConsumerStatefulWidget {
   final DoctorScope scope;
 
   @override
-  ConsumerState<DoctorWorkspaceScreen> createState() => _DoctorWorkspaceScreenState();
+  ConsumerState<DoctorWorkspaceScreen> createState() => DoctorWorkspaceScreenState();
 }
 
-class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
+class DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
   final _query = TextEditingController();
   final _historyKey = GlobalKey<HistoryTabState>();
   Future<List<PatientSearchResult>>? _results;
@@ -51,6 +51,11 @@ class _DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
       _results = null;
     });
   }
+
+  /// Public entry point so another tab (e.g. the live queue) can ask the
+  /// Patients tab to open a patient by name — same behaviour as the dashboard's
+  /// next-patient card.
+  Future<void> openByName(String name) => _openByName(name);
 
   /// From the dashboard's next-patient/queue cards: the queue RPC gives us a
   /// name, not an id — so prefill the search box and run a scoped search rather
