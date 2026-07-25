@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/routing/app_router.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/scan_code_screen.dart';
 import '../../shared/widgets/skeleton_loader.dart';
@@ -83,7 +84,7 @@ class _DiagnosticPortalScreenState extends ConsumerState<DiagnosticPortalScreen>
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
             itemCount: items.length,
             itemBuilder: (context, i) => _QueueCard(
               item: items[i],
@@ -291,43 +292,76 @@ class _QueueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     final done = item.hasReport || item.status == 'report_ready';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: AppRadii.rCard,
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(item.testName,
+                    style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              ),
+              StatusPill(done ? 'report_ready' : item.status),
+            ],
+          ),
+          if (item.testType.isNotEmpty)
+            Text(item.testType,
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+          const SizedBox(height: AppSpacing.sm),
+          // The partner sees only the patient's name (order-scoped grant §5.3).
+          Row(
+            children: [
+              Icon(Icons.person, size: 16, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(item.patientName, style: text.bodyMedium),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (done)
             Row(
               children: [
-                Expanded(
-                  child: Text('${item.testName} · ${item.testType}',
-                      style: Theme.of(context).textTheme.titleSmall),
+                Icon(Icons.lock_outline, size: 16, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Text('Report uploaded — order closed.',
+                    style: text.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant)),
+              ],
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () => onStatus('sample_collected'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(44, 40)),
+                  child: const Text('Sample collected'),
                 ),
-                StatusPill(done ? 'report_ready' : item.status),
+                OutlinedButton(
+                  onPressed: () => onStatus('in_progress'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(44, 40)),
+                  child: const Text('In progress'),
+                ),
+                FilledButton(
+                  onPressed: onUpload,
+                  style: FilledButton.styleFrom(minimumSize: const Size(44, 40)),
+                  child: const Text('Upload result'),
+                ),
               ],
             ),
-            Text(item.patientName, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 8),
-            if (done)
-              const Text('Report uploaded — order closed.')
-            else
-              Wrap(
-                spacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => onStatus('sample_collected'),
-                    child: const Text('Sample collected'),
-                  ),
-                  OutlinedButton(
-                    onPressed: () => onStatus('in_progress'),
-                    child: const Text('In progress'),
-                  ),
-                  FilledButton(onPressed: onUpload, child: const Text('Upload result')),
-                ],
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

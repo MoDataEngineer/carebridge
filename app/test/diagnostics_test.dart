@@ -154,7 +154,9 @@ void main() {
     await tester.pumpWidget(_harness(repo, const DiagnosticPortalScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Chest X-Ray · imaging'), findsOneWidget);
+    // Test name is the card headline; the type is a separate caption line.
+    expect(find.text('Chest X-Ray'), findsOneWidget);
+    expect(find.text('imaging'), findsOneWidget);
     expect(find.text('Asha Rao'), findsOneWidget);
 
     await tester.tap(find.text('Upload result'));
@@ -166,6 +168,6 @@ void main() {
 
     expect(repo.uploadedOrder, 'o2');
     // Order left the queue once the report closed the grant.
-    expect(find.text('Chest X-Ray · imaging'), findsNothing);
+    expect(find.text('Chest X-Ray'), findsNothing);
   });
 }
