@@ -274,10 +274,12 @@ notifications
 - Flag clearly (don't silently skip) anything depending on credentials/APIs not yet available (ABDM sandbox keys, Claude API key, FCM config) — stub it and note what's needed to make it real.
 - If anything in this spec seems contradictory or underspecified once you're implementing it, stop and ask the founder rather than guessing — several decisions here (admin inherited visibility, clinical-accountability gating) were explicit judgment calls, not arbitrary defaults, and silently reinterpreting them could break the trust model the whole app depends on.
 
-## 13. Wearables & vitals module (PLANNED epic — Phases 12+, D14)
+## 13. Wearables & vitals module (P12 BUILT; P13–14 planned — D14/D15)
 
-> Planned, not built. Authoritative design record: `docs/EPIC_wearables.md`
-> (decision `DECISIONS.md` D14, 2026-07-23).
+> Phase 12 BUILT (2026-07-25): patient fitness tracker + consent foundation +
+> on-device sync (`health` plugin → HealthKit/Health Connect, raw types only).
+> Authoritative design: `docs/EPIC_wearables.md`; integration ref
+> `docs/wearables_integration.md`; decisions `DECISIONS.md` D14/D15.
 
 Patients connect a fitness band / smartwatch and get a standalone, always-free
 **Strava-style daily fitness tracker** (steps, calories, active minutes,

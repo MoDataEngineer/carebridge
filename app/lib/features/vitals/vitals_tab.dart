@@ -132,8 +132,36 @@ class _VitalsTabState extends ConsumerState<VitalsTab> {
                 VitalTile(label: 'Resting HR', value: '${_today.restingHr}', unit: 'bpm'),
               if (_today.sleepMinutes != null)
                 VitalTile(label: 'Sleep', value: _sleep(_today.sleepMinutes!)),
+              if (_today.hrv != null)
+                VitalTile(
+                    label: 'HRV',
+                    value: '${_today.hrv}',
+                    unit: _today.hrvIsRmssd ? 'ms rmssd' : 'ms sdnn'),
+              if (_today.respiratoryRate != null)
+                VitalTile(
+                    label: 'Respiration',
+                    value: _today.respiratoryRate!.toStringAsFixed(0),
+                    unit: '/min'),
               if (_today.spo2 != null)
                 VitalTile(label: 'SpO₂', value: '${_today.spo2}', unit: '%'),
+              if (_today.distanceKm != null)
+                VitalTile(
+                    label: 'Distance',
+                    value: _today.distanceKm!.toStringAsFixed(1),
+                    unit: 'km'),
+              if (_today.floors != null && _today.floors! > 0)
+                VitalTile(label: 'Floors', value: '${_today.floors}'),
+              if (_today.skinTempDelta != null)
+                VitalTile(
+                    label: 'Skin temp',
+                    value: '${_today.skinTempDelta! >= 0 ? '+' : ''}'
+                        '${_today.skinTempDelta!.toStringAsFixed(1)}',
+                    unit: '°C'),
+              if (_today.hasBloodPressure)
+                VitalTile(
+                    label: 'Blood pressure',
+                    value: '${_today.bpSystolic}/${_today.bpDiastolic}',
+                    unit: 'mmHg'),
             ],
           ),
           if (_week.isNotEmpty) ...[

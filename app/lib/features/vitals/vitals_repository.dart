@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/supabase_client.dart';
+import 'health/health_source.dart';
 import 'vitals_models.dart';
 
 /// Data for the patient's own daily fitness view (epic §2, Phase 12). Abstracted
@@ -57,6 +60,11 @@ class DemoVitalsRepository implements VitalsRepository {
       sleepMinutes: 400, // 6h 40m
       spo2: 97,
       streakDays: 4,
+      hrv: 48,
+      respiratoryRate: 14.2,
+      distanceKm: 4.6,
+      floors: 8,
+      skinTempDelta: -0.2,
     );
   }
 
@@ -220,17 +228,100 @@ class SupabaseVitalsRepository implements VitalsRepository {
         )
     ];
   }
+
+  /// Persist today's aggregates so they survive and (Phase 13) can be shared
+  /// with a doctor. Best-effort — a sync failure never blocks the patient view.
+  Future<void> syncToday(DailyVitals v) async {
+    final pid = await _patientId();
+    if (pid == null) return;
+    final day = DateTime.now().toIso8601String().split('T').first;
+    Map<String, dynamic> row(String metric, num? value, [String? unit]) => {
+          'patient_id': pid,
+          'metric_type': metric,
+          'metric_date': day,
+          'value': value,
+          'unit': unit,
+          'source': 'on_device',
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+    final rows = <Map<String, dynamic>>[
+      row('steps', v.steps),
+      row('active_minutes', v.activeMinutes, 'min'),
+      row('calories', v.calories, 'kcal'),
+      if (v.restingHr != null) row('resting_hr', v.restingHr, 'bpm'),
+      if (v.sleepMinutes != null) row('sleep_minutes', v.sleepMinutes, 'min'),
+      if (v.hrv != null) row('hrv', v.hrv, 'ms'),
+      if (v.spo2 != null) row('spo2', v.spo2, '%'),
+    ];
+    try {
+      await _client
+          .from('wearable_metrics_daily')
+          .upsert(rows, onConflict: 'patient_id,metric_type,metric_date');
+    } catch (_) {/* best-effort */}
+  }
 }
 
-/// P12 default = the demo source, so the patient tracker is usable and
-/// verifiable before the on-device sync (a new `health` dependency, pending
-/// approval) lands. Flip [_useDemo] to false once devices push real aggregates
-/// into the wearable tables.
-const bool _useDemo = true;
+/// The mobile source of truth: reads the on-device hub (HealthKit / Health
+/// Connect) for the patient's own view, and best-effort persists daily
+/// aggregates to Supabase so Phase 13 can share them. Selected only on a real
+/// iOS/Android device (see [vitalsRepositoryProvider]).
+class LiveVitalsRepository implements VitalsRepository {
+  LiveVitalsRepository(SupabaseClient client, this._source)
+      : _db = SupabaseVitalsRepository(client);
 
-final vitalsRepositoryProvider = Provider<VitalsRepository>((ref) {
-  if (_useDemo || !SupabaseService.isInitialized) {
-    return DemoVitalsRepository();
+  final SupabaseVitalsRepository _db;
+  final HealthSource _source;
+  bool _connected = false;
+
+  @override
+  bool get anyConnected => _connected;
+
+  @override
+  Future<List<VitalsConnection>> connections() async {
+    final list = await _db.connections();
+    _connected = list.any((c) => c.connected);
+    return list;
   }
-  return SupabaseVitalsRepository(SupabaseService.client);
+
+  @override
+  Future<void> connect(WearableProvider provider) async {
+    // OS permission (consent layer a, §5) MUST be granted before we record the
+    // connection — no permission, no connection.
+    final ok = await _source.requestPermissions();
+    if (!ok) return;
+    await _db.connect(provider);
+    _connected = true;
+  }
+
+  @override
+  Future<void> disconnect(WearableProvider provider) async {
+    await _db.disconnect(provider);
+    _connected = false;
+  }
+
+  @override
+  Future<DailyVitals> today() async {
+    final v = await _source.readToday();
+    // Fire-and-forget: keep aggregates in Supabase for later sharing.
+    unawaited(_db.syncToday(v));
+    return v;
+  }
+
+  @override
+  Future<List<MetricPoint>> weekTrend(String metric) => _source.readWeekSteps();
+
+  @override
+  Future<List<WorkoutSummary>> recentWorkouts() => _source.readWorkouts();
+}
+
+/// On a real iOS/Android device we read the on-device hub (HealthKit / Health
+/// Connect) via [LiveVitalsRepository]. Everywhere the plugin can't run — web
+/// (the stub reports unsupported), desktop, the test VM — we fall back to
+/// [DemoVitalsRepository] so the tracker is still usable and demoable.
+final vitalsRepositoryProvider = Provider<VitalsRepository>((ref) {
+  final source = createHealthSource();
+  if (source.platformSupported && SupabaseService.isInitialized) {
+    return LiveVitalsRepository(SupabaseService.client, source);
+  }
+  return DemoVitalsRepository();
 });

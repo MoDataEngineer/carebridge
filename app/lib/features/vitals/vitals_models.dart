@@ -46,7 +46,11 @@ class VitalsConnection {
 }
 
 /// Today's headline numbers for the patient's own daily view. Every field is a
-/// raw device figure — nothing here is scored or interpreted (§6).
+/// RAW device figure — nothing here is scored or interpreted (§6). We
+/// deliberately do NOT compute WHOOP-style composite scores (Recovery, Strain,
+/// readiness, sleep-performance, "WHOOP Age", stress): those are derived
+/// interpretations and would cross the non-diagnostic boundary. We surface only
+/// what HealthKit / Health Connect expose as standardized types.
 class DailyVitals {
   const DailyVitals({
     this.steps = 0,
@@ -59,6 +63,15 @@ class DailyVitals {
     this.sleepMinutes,
     this.spo2,
     this.streakDays = 0,
+    // Extended raw metrics (shown when the device provides them).
+    this.hrv,
+    this.respiratoryRate,
+    this.skinTempDelta,
+    this.distanceKm,
+    this.floors,
+    this.bpSystolic,
+    this.bpDiastolic,
+    this.hrvIsRmssd = true,
   });
 
   final int steps;
@@ -69,8 +82,23 @@ class DailyVitals {
   final int caloriesGoal;
   final int? restingHr; // bpm
   final int? sleepMinutes;
-  final int? spo2; // % — regulated, display-only
+  final int? spo2; // % — regulated signal, display-only
   final int streakDays;
+
+  final int? hrv; // ms (RMSSD on Android / SDNN on iOS — see hrvIsRmssd)
+  final double? respiratoryRate; // breaths/min
+  final double? skinTempDelta; // °C deviation from baseline
+  final double? distanceKm;
+  final int? floors;
+  final int? bpSystolic; // regulated signal, display-only
+  final int? bpDiastolic;
+
+  /// iOS HealthKit only exposes SDNN; Android Health Connect exposes RMSSD.
+  /// We label which one so the number is never silently compared across
+  /// platforms (epic §3 caveat).
+  final bool hrvIsRmssd;
+
+  bool get hasBloodPressure => bpSystolic != null && bpDiastolic != null;
 }
 
 /// One point on a week/month trend line.

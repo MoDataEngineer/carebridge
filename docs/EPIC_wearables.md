@@ -8,12 +8,14 @@
 > **P12 build note.** Data model (`0034`/`0035`), the `current_scope_can_view_wearables()`
 > helper, patient RLS + the `wearable` share/revoke RPCs, and the patient's
 > standalone daily view + connect flow (`app/lib/features/vitals/`, Vitals nav
-> tab) are in the repo. The daily view ships against a **demo data source**
-> (`DemoVitalsRepository`) so it is usable/verifiable now; the **real on-device
-> sync** — the `health` plugin reading HealthKit/Health Connect into
-> `SupabaseVitalsRepository` — is the remaining P12 step and needs (a) a new
-> dependency decision (§12) and (b) a physical-device build to verify. Migrations
-> `0034`/`0035` are written but **not yet deployed** (`supabase db push`).
+> tab) are in the repo. The **on-device sync is now integrated** (D15): the
+> `health` plugin (v13) reads Apple HealthKit / Android Health Connect via
+> `LiveVitalsRepository` on device (raw types only — see
+> `docs/wearables_integration.md`), while web/desktop/tests use
+> `DemoVitalsRepository`. `package:health` is kept out of the web build via
+> conditional import. **Remaining to fully activate on device:** enable the
+> HealthKit capability in Xcode (iOS), a physical-device build to verify, and
+> deploy migrations `0034`/`0035` (`supabase db push`).
 
 ## Two independent goals
 

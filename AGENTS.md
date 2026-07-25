@@ -348,11 +348,19 @@ clarifying questions come before implementation rather than after mistakes.
 in `docs/SECURITY_REVIEW_2026-07-19.md` — OTP enforcement, demo seed PINs, ABDM
 callback signature verification, secret rotation.
 
-## 15. Wearables & vitals module (PLANNED epic — Phases 12+, D14)
+## 15. Wearables & vitals module (P12 BUILT; P13–14 planned — D14/D15)
 
-> Planned, not built. Full design: `docs/EPIC_wearables.md`; decision
-> `DECISIONS.md` D14 (2026-07-23); PRD summary `PROJECT_BRIEF.md` §13. When this
-> epic is eventually built, the rules below are non-negotiable — re-read them.
+> Phase 12 is BUILT (patient tracker + consent foundation + on-device sync). Full
+> design: `docs/EPIC_wearables.md`; integration ref `docs/wearables_integration.md`;
+> decisions `DECISIONS.md` D14/D15; PRD summary `PROJECT_BRIEF.md` §13. The rules
+> below are non-negotiable — re-read them before touching vitals code.
+>
+> **Raw types only.** The on-device sync (`health` plugin → HealthKit/Health
+> Connect) reads standardized platform types and displays them as-is. Do NOT
+> compute WHOOP-style composite scores (recovery/strain/readiness/sleep-
+> performance/"WHOOP Age"/stress) — no platform type exists for them and deriving
+> one crosses the non-diagnostic boundary (rule 3 below). `package:health` is
+> mobile-only, kept out of the web build via conditional import.
 
 Patients get a standalone, always-free Strava-style daily fitness tracker
 (steps/calories/workouts/sleep/HR/streaks). Doctors get a **paid**, consent-gated,

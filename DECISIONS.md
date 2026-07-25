@@ -207,6 +207,32 @@ Key calls recorded:
 - **Phasing:** P12 patient tracker + consent foundation; P13 doctor view + visit
   linkage; P14 follow-up loop + BP inputs. Each returns for approval.
 
+## D15 — Wearables P12 built + `health` plugin adopted (ADOPTED 2026-07-25)
+
+Phase 12 of D14 is built (commit `b8f860e` foundation + the on-device sync).
+Adopts the **`health` Flutter plugin (v13)** as the on-device reader for Apple
+HealthKit + Android Health Connect — the founder-approved way to realise D14's
+"on-device only" call. Full mapping + native setup: `docs/wearables_integration.md`.
+
+Key calls:
+- **Raw types only, never derived scores.** We ingest the standardized platform
+  types (HR, RHR, HRV, respiratory rate, SpO2, skin temp, sleep, workouts, steps,
+  distance, floors, energy, BP) and display them as-is. We deliberately do **not**
+  compute WHOOP-style composites (recovery/strain/readiness/sleep-performance/
+  "WHOOP Age"/stress) — neither platform has a type for them and deriving one
+  crosses the non-diagnostic boundary (D14 / Section 8). This turns the WHOOP
+  feature research into a raw-data map, not a scoring engine.
+- **HRV platform caveat carried through:** iOS HealthKit exposes only SDNN,
+  Android Health Connect RMSSD — labelled per reading so they're never conflated.
+- **VO₂max** has no enum in `health` 13.x → out of the read set for now.
+- **web-safe:** `package:health` is mobile-only, kept out of the web build via
+  conditional import (`HealthSource` stub on web / native on device), so web
+  verification + the demo source are unaffected. `minSdk` → 26;
+  `FlutterFragmentActivity`; HealthKit Info.plist + entitlements added (the Xcode
+  HealthKit capability toggle + a device build remain).
+- First-party vendor OAuth (WHOOP etc.) and paid aggregators stay **deferred**
+  (cost + cross-border), per D14.
+
 ---
 
 ### Net effect on the data model
@@ -216,4 +242,4 @@ Key calls recorded:
 - Scope claims live in the JWT, not a table (D2).
 - `prescriptions` → structured `schedule` / `relation_to_food` / `duration_days` (D5).
 - `doctors` → add `phone` (nullable, unique on normalized last-10) for per-doctor login (D13).
-- PLANNED (D14, Phases 12+): `grant_type` → add `'wearable'`; new `wearable_connections` / `wearable_metrics_daily` / `wearable_workouts` tables (+ optional short-lived raw samples); `visits` → optional structured `advice`. Not built yet.
+- BUILT (D14/D15, P12): `grant_type` → `'wearable'` (migration `0034`); new `wearable_connections` / `wearable_metrics_daily` / `wearable_workouts` tables + `current_scope_can_view_wearables()` + share/revoke RPCs (migration `0035`). Not yet deployed (`supabase db push`). `visits.advice` remains PLANNED for P13.
