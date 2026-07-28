@@ -17,9 +17,12 @@ create unique index if not exists idx_diagnostic_partners_phone
   on diagnostic_partners(phone) where phone is not null;
 
 -- Demo seed partner stays usable: verified, PIN 1234 (demo data only).
+-- pgcrypto lives in the `extensions` schema on Supabase; this bare (non-function)
+-- statement has no `search_path`, so crypt/gen_salt must be schema-qualified —
+-- unlike the functions below, which set `search_path = public, extensions`.
 update diagnostic_partners
   set verified = true,
-      pin_hash = coalesce(pin_hash, crypt('1234', gen_salt('bf')))
+      pin_hash = coalesce(pin_hash, extensions.crypt('1234', extensions.gen_salt('bf')))
   where registration_number = 'LAB-DEMO-1';
 
 -- ---- PIN functions learn the 'partner' identity type ----
