@@ -22,6 +22,11 @@ abstract class VitalsRepository {
   Future<List<MetricPoint>> weekTrend(String metric);
   Future<List<WorkoutSummary>> recentWorkouts();
 
+  /// P14: manual blood-pressure entry (the fallback when no Bluetooth cuff
+  /// writes into the hub). Stored like any other daily metric; shown as
+  /// "informational, not a diagnostic measurement" (§6).
+  Future<void> recordBloodPressure(int systolic, int diastolic);
+
   bool get anyConnected;
 }
 
@@ -31,9 +36,18 @@ abstract class VitalsRepository {
 /// It holds connection state in memory; nothing leaves the app.
 class DemoVitalsRepository implements VitalsRepository {
   final Set<WearableProvider> _connected = {WearableProvider.healthConnect};
+  int? _bpSys;
+  int? _bpDia;
 
   @override
   bool get anyConnected => _connected.isNotEmpty;
+
+  @override
+  Future<void> recordBloodPressure(int systolic, int diastolic) async {
+    _bpSys = systolic;
+    _bpDia = diastolic;
+    _connected.add(WearableProvider.manual);
+  }
 
   @override
   Future<List<VitalsConnection>> connections() async => [
@@ -52,7 +66,7 @@ class DemoVitalsRepository implements VitalsRepository {
   @override
   Future<DailyVitals> today() async {
     if (_connected.isEmpty) return const DailyVitals();
-    return const DailyVitals(
+    return DailyVitals(
       steps: 6420,
       activeMinutes: 22,
       calories: 380,
@@ -65,6 +79,8 @@ class DemoVitalsRepository implements VitalsRepository {
       distanceKm: 4.6,
       floors: 8,
       skinTempDelta: -0.2,
+      bpSystolic: _bpSys,
+      bpDiastolic: _bpDia,
     );
   }
 
@@ -180,13 +196,45 @@ class SupabaseVitalsRepository implements VitalsRepository {
         .select('metric_type, value')
         .eq('metric_date', day) as List;
     if (rows.isEmpty) return const DailyVitals();
+    final sys = _metricInt(rows, 'bp_systolic');
+    final dia = _metricInt(rows, 'bp_diastolic');
     return DailyVitals(
       steps: _metricInt(rows, 'steps'),
       activeMinutes: _metricInt(rows, 'active_minutes'),
       calories: _metricInt(rows, 'calories'),
       restingHr: _metricInt(rows, 'resting_hr'),
       sleepMinutes: _metricInt(rows, 'sleep_minutes'),
+      bpSystolic: sys > 0 ? sys : null,
+      bpDiastolic: dia > 0 ? dia : null,
     );
+  }
+
+  @override
+  Future<void> recordBloodPressure(int systolic, int diastolic) async {
+    final pid = await _patientId();
+    if (pid == null) return;
+    final day = DateTime.now().toIso8601String().split('T').first;
+    final now = DateTime.now().toIso8601String();
+    Map<String, dynamic> row(String metric, int value) => {
+          'patient_id': pid,
+          'metric_type': metric,
+          'metric_date': day,
+          'value': value,
+          'unit': 'mmHg',
+          'source': 'manual',
+          'updated_at': now,
+        };
+    await _client.from('wearable_metrics_daily').upsert(
+      [row('bp_systolic', systolic), row('bp_diastolic', diastolic)],
+      onConflict: 'patient_id,metric_type,metric_date',
+    );
+    // A manual reading counts as a connected 'manual' source.
+    await _client.from('wearable_connections').upsert({
+      'patient_id': pid,
+      'provider': 'manual',
+      'status': 'active',
+      'revoked_at': null,
+    }, onConflict: 'patient_id,provider');
   }
 
   @override
@@ -227,6 +275,23 @@ class SupabaseVitalsRepository implements VitalsRepository {
           calories: m['calories'] as int?,
         )
     ];
+  }
+
+  /// Today's manually-entered BP, if any (systolic, diastolic).
+  Future<(int, int)?> todayBloodPressure() async {
+    final day = DateTime.now().toIso8601String().split('T').first;
+    try {
+      final rows = await _client
+          .from('wearable_metrics_daily')
+          .select('metric_type, value')
+          .eq('metric_date', day)
+          .inFilter('metric_type', ['bp_systolic', 'bp_diastolic']) as List;
+      final sys = _metricInt(rows, 'bp_systolic');
+      final dia = _metricInt(rows, 'bp_diastolic');
+      return (sys > 0 && dia > 0) ? (sys, dia) : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Persist today's aggregates so they survive and (Phase 13) can be shared
@@ -304,6 +369,11 @@ class LiveVitalsRepository implements VitalsRepository {
     final v = await _source.readToday();
     // Fire-and-forget: keep aggregates in Supabase for later sharing.
     unawaited(_db.syncToday(v));
+    // Manual BP isn't in the device hub — merge today's stored reading in.
+    if (!v.hasBloodPressure) {
+      final bp = await _db.todayBloodPressure();
+      if (bp != null) return v.copyWithBloodPressure(bp.$1, bp.$2);
+    }
     return v;
   }
 
@@ -312,6 +382,10 @@ class LiveVitalsRepository implements VitalsRepository {
 
   @override
   Future<List<WorkoutSummary>> recentWorkouts() => _source.readWorkouts();
+
+  @override
+  Future<void> recordBloodPressure(int systolic, int diastolic) =>
+      _db.recordBloodPressure(systolic, diastolic);
 }
 
 /// On a real iOS/Android device we read the on-device hub (HealthKit / Health

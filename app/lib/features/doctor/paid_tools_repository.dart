@@ -19,6 +19,8 @@ class FollowUpItem {
     required this.patientName,
     required this.diagnosis,
     required this.dueDate,
+    this.activityMinutesTarget,
+    this.activityDaysPerWeek,
   });
 
   final String visitId;
@@ -26,6 +28,15 @@ class FollowUpItem {
   final String patientName;
   final String? diagnosis;
   final DateTime dueDate;
+
+  /// P14: the activity advice written at the visit (visits.advice), so the
+  /// follow-up card shows what was advised. The actual adherence lives in the
+  /// patient's Vitals tab (opened by tapping the card) — kept out of here to
+  /// avoid a per-row wearable read + audit-log noise.
+  final int? activityMinutesTarget;
+  final int? activityDaysPerWeek;
+
+  bool get hasActivityAdvice => activityMinutesTarget != null;
 
   bool get overdue => dueDate.isBefore(DateTime.now());
 }
@@ -63,7 +74,7 @@ class SupabasePaidToolsRepository implements PaidToolsRepository {
   Future<List<FollowUpItem>> followUps() async {
     final rows = await _client
         .from('visits')
-        .select('id, patient_id, diagnosis, follow_up_date, patients(name)')
+        .select('id, patient_id, diagnosis, follow_up_date, advice, patients(name)')
         .not('follow_up_date', 'is', null)
         .eq('follow_up_completed', false)
         .lte('follow_up_date',
@@ -78,6 +89,10 @@ class SupabasePaidToolsRepository implements PaidToolsRepository {
               ((m['patients'] ?? const {}) as Map)['name'] as String? ?? '(unknown)',
           diagnosis: m['diagnosis'] as String?,
           dueDate: DateTime.parse(m['follow_up_date'].toString()),
+          activityMinutesTarget:
+              ((m['advice'] as Map?)?['activity_minutes_target'] as num?)?.toInt(),
+          activityDaysPerWeek:
+              ((m['advice'] as Map?)?['days_per_week'] as num?)?.toInt(),
         )
     ];
   }

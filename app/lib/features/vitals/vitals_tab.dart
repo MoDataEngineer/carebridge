@@ -192,12 +192,20 @@ class _VitalsTabState extends ConsumerState<VitalsTab> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Center(
-            child: TextButton.icon(
-              onPressed: _manage,
-              icon: const Icon(Icons.settings_outlined, size: 18),
-              label: const Text('Manage trackers'),
-            ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: _logBloodPressure,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Log blood pressure'),
+              ),
+              TextButton.icon(
+                onPressed: _manage,
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: const Text('Manage trackers'),
+              ),
+            ],
           ),
         ],
       ),
@@ -205,6 +213,56 @@ class _VitalsTabState extends ConsumerState<VitalsTab> {
   }
 
   String _sleep(int minutes) => '${minutes ~/ 60}h ${minutes % 60}m';
+
+  /// Manual BP entry (P14) — the fallback when no Bluetooth cuff writes into the
+  /// hub. Two numeric fields; stored and shown as informational (not diagnostic).
+  Future<void> _logBloodPressure() async {
+    final sysCtrl = TextEditingController();
+    final diaCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log blood pressure'),
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 90,
+              child: TextField(
+                controller: sysCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Systolic'),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text('/'),
+            ),
+            SizedBox(
+              width: 90,
+              child: TextField(
+                controller: diaCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Diastolic'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final sys = int.tryParse(sysCtrl.text.trim());
+    final dia = int.tryParse(diaCtrl.text.trim());
+    if (sys == null || dia == null) return;
+    await ref.read(vitalsRepositoryProvider).recordBloodPressure(sys, dia);
+    if (!mounted) return;
+    setState(() => _loading = true);
+    _load();
+  }
 
   Widget _streakPill(BuildContext context, int days) {
     return Container(

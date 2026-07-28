@@ -14,8 +14,17 @@ class _FakeVitalsRepo implements VitalsRepository {
   _FakeVitalsRepo({required this.connected});
   final bool connected;
 
+  int? bpSys;
+  int? bpDia;
+
   @override
   bool get anyConnected => connected;
+
+  @override
+  Future<void> recordBloodPressure(int systolic, int diastolic) async {
+    bpSys = systolic;
+    bpDia = diastolic;
+  }
 
   @override
   Future<List<VitalsConnection>> connections() async => [
@@ -31,7 +40,7 @@ class _FakeVitalsRepo implements VitalsRepository {
   Future<void> disconnect(WearableProvider provider) async {}
 
   @override
-  Future<DailyVitals> today() async => const DailyVitals(
+  Future<DailyVitals> today() async => DailyVitals(
         steps: 6420,
         activeMinutes: 22,
         calories: 380,
@@ -39,6 +48,8 @@ class _FakeVitalsRepo implements VitalsRepository {
         sleepMinutes: 400,
         spo2: 97,
         streakDays: 4,
+        bpSystolic: bpSys,
+        bpDiastolic: bpDia,
       );
 
   @override
@@ -89,5 +100,29 @@ void main() {
 
     expect(find.text('Connect a tracker'), findsOneWidget);
     expect(find.text('6.4k'), findsNothing);
+  });
+
+  // P14: manual BP entry records and shows the reading.
+  testWidgets('logging blood pressure records it and shows the reading',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 2800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repo = _FakeVitalsRepo(connected: true);
+    await tester.pumpWidget(_harness(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Log blood pressure'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Systolic'), '120');
+    await tester.enterText(find.widgetWithText(TextField, 'Diastolic'), '80');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repo.bpSys, 120);
+    expect(repo.bpDia, 80);
+    expect(find.text('120/80'), findsOneWidget);
   });
 }

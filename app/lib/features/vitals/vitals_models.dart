@@ -99,6 +99,29 @@ class DailyVitals {
   final bool hrvIsRmssd;
 
   bool get hasBloodPressure => bpSystolic != null && bpDiastolic != null;
+
+  /// Overlay a (manually entered) BP reading onto an otherwise device-sourced
+  /// day — the device hub doesn't carry manual cuff readings.
+  DailyVitals copyWithBloodPressure(int systolic, int diastolic) => DailyVitals(
+        steps: steps,
+        stepsGoal: stepsGoal,
+        activeMinutes: activeMinutes,
+        activeGoal: activeGoal,
+        calories: calories,
+        caloriesGoal: caloriesGoal,
+        restingHr: restingHr,
+        sleepMinutes: sleepMinutes,
+        spo2: spo2,
+        streakDays: streakDays,
+        hrv: hrv,
+        respiratoryRate: respiratoryRate,
+        skinTempDelta: skinTempDelta,
+        distanceKm: distanceKm,
+        floors: floors,
+        bpSystolic: systolic,
+        bpDiastolic: diastolic,
+        hrvIsRmssd: hrvIsRmssd,
+      );
 }
 
 /// One point on a week/month trend line.

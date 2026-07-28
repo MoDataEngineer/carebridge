@@ -145,6 +145,34 @@ class _FollowUpsScreenState extends ConsumerState<FollowUpsScreen> {
                     style: text.bodySmall
                         ?.copyWith(color: scheme.onSurfaceVariant)),
               ],
+              // P14: what was advised at the visit. Tapping the card opens the
+              // patient → Vitals tab, where the advice-vs-actual overlay shows
+              // whether they did it (no adherence number here — avoids a
+              // per-row wearable read).
+              if (f.hasActivityAdvice) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.tintMint,
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.directions_walk,
+                          size: 14, color: AppColors.brand700),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Advised ${f.activityMinutesTarget} min'
+                        '${f.activityDaysPerWeek != null ? ' × ${f.activityDaysPerWeek}/wk' : ''}',
+                        style: text.labelMedium?.copyWith(
+                            color: AppColors.brand700, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
