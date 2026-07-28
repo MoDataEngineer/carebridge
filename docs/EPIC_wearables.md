@@ -1,9 +1,19 @@
 # Epic: Wearables & Vitals Tracking
 
-> **Status: Phases 12 & 13 BUILT (2026-07-25); Phase 14 planned.** This is the
-> authoritative design record for a post-MVP module. Each phase returns for its
-> own approval before any code is written. Companion records: `DECISIONS.md`
-> D14, `PROJECT_BRIEF.md` §13, `CLAUDE.md`/`AGENTS.md` §15.
+> **Status: Phases 12–14 BUILT (2026-07-25).** This is the authoritative design
+> record for a post-MVP module. Companion records: `DECISIONS.md` D14,
+> `PROJECT_BRIEF.md` §13, `CLAUDE.md`/`AGENTS.md` §15.
+>
+> **P14 build note.** No new migration. Manual BP entry (patient) — "Log blood
+> pressure" on the vitals view writes bp_systolic/bp_diastolic to
+> `wearable_metrics_daily` (source `manual`); the live device path merges today's
+> stored reading over the hub-less BP field. Follow-up ↔ advice link (doctor) —
+> the follow-ups query selects `visits.advice` and each card shows an "Advised N
+> min ×M/wk" chip; tapping opens the patient → Vitals tab (the P13 adherence
+> overlay), so the adherence NUMBER stays behind the grant-gated, logged view
+> (no per-row wearable read). Reminders verified PHI-free (payload is
+> `{visit_id, follow_up_date, manual}`, generic text). Bluetooth BP cuff remains
+> deferred (needs a BLE plugin) — manual entry is the MVP fallback.
 >
 > **P13 build note.** Doctor trend/adherence view is in the repo. Migration
 > `0036` adds `visits.advice` (structured activity target) + the single doctor
@@ -224,10 +234,12 @@ Each phase ships with trust tests and returns for approval.
   off by default and patient-initiated; **admin AC-8 does NOT see wearables**
   (helper has no admin branch); paid gating enforced server-side; access logged
   as `wearable data`.
-- **Phase 14 — Follow-up loop + inputs.**
-  Wire wearable adherence into the follow-up tracker + reminders; Bluetooth /
-  manual BP entry.
-  *Trust tests:* reminders carry no PHI; overlay respects grant + revoke.
+- **Phase 14 — Follow-up loop + inputs. ✅ BUILT (2026-07-25).**
+  Follow-up cards show the visit's activity advice and open into the P13
+  adherence overlay; manual BP entry (patient). Bluetooth cuff deferred.
+  *Trust tests:* reminders carry no PHI (payload `{visit_id, follow_up_date,
+  manual}`, generic text — verified); the adherence overlay respects grant +
+  revoke (P13, enforced in `carebridge_patient_wearables`).
 - **Deferred (unscheduled):** optional paid aggregator for band/web coverage —
   requires a new decision (cost + cross-border).
 

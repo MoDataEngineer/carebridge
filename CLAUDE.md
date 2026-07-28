@@ -348,11 +348,12 @@ clarifying questions come before implementation rather than after mistakes.
 in `docs/SECURITY_REVIEW_2026-07-19.md` — OTP enforcement, demo seed PINs, ABDM
 callback signature verification, secret rotation.
 
-## 15. Wearables & vitals module (P12 & P13 BUILT; P14 planned — D14/D15)
+## 15. Wearables & vitals module (P12–P14 BUILT — D14/D15)
 
-> Phases 12 & 13 are BUILT (patient tracker + on-device sync; paid, consent-gated
-> doctor trend/adherence view + patient "Share my vitals" toggle + visit advice).
-> Migrations 0034/0035/0036 NOT yet deployed (`supabase db push`). Full
+> Phases 12–14 are BUILT (patient tracker + on-device sync; paid, consent-gated
+> doctor trend/adherence view + patient "Share my vitals" toggle + visit advice;
+> follow-up↔advice link + manual BP entry). Migrations 0034/0035/0036 NOT yet
+> deployed (`supabase db push`). Full
 > design: `docs/EPIC_wearables.md`; integration ref `docs/wearables_integration.md`;
 > decisions `DECISIONS.md` D14/D15; PRD summary `PROJECT_BRIEF.md` §13. The rules
 > below are non-negotiable — re-read them before touching vitals code.
