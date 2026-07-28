@@ -40,10 +40,13 @@ class _DoctorVitalsTabState extends ConsumerState<DoctorVitalsTab> {
         if (snap.connectionState != ConnectionState.done) {
           return const Center(child: PillsLoader());
         }
-        if (snap.hasError) {
-          // The RPC raises when there's no wearable grant (or the clinic isn't
-          // paid) — surface it as "not shared", never as a raw error.
+        if (snap.error is VitalsNotSharedException) {
+          // Legitimate: no wearable grant / not paid.
           return const _NotShared();
+        }
+        if (snap.hasError) {
+          // A real error — show it instead of masking it as "not shared".
+          return _VitalsError(message: '${snap.error}');
         }
         return _VitalsContent(view: snap.data!);
       },
@@ -75,6 +78,38 @@ class _NotShared extends StatelessWidget {
               textAlign: TextAlign.center,
               style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A real (non-"not shared") error, surfaced instead of hidden.
+class _VitalsError extends StatelessWidget {
+  const _VitalsError({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 36, color: scheme.error),
+            const SizedBox(height: 12),
+            Text('Could not load vitals',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: scheme.onSurfaceVariant)),
           ],
         ),
       ),

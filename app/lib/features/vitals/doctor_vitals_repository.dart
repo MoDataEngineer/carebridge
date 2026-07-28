@@ -80,9 +80,16 @@ class SupabaseDoctorVitalsRepository implements DoctorVitalsRepository {
       final res = await _client
           .rpc('carebridge_patient_wearables', params: {'p_patient': patientId});
       return _parse((res as Map).cast<String, dynamic>());
-    } on PostgrestException {
-      // The RPC raises when there's no wearable grant or the clinic isn't paid.
-      throw VitalsNotSharedException();
+    } on PostgrestException catch (e) {
+      // Our own gate raises (P0001) mean "no wearable grant" / "not paid" — the
+      // legitimate not-shared case. Anything else is a real error and must
+      // surface, not masquerade as "not shared" (that would hide bugs).
+      final msg = e.message.toLowerCase();
+      if (e.code == 'P0001' &&
+          (msg.contains('wearable share') || msg.contains('paid feature'))) {
+        throw VitalsNotSharedException();
+      }
+      rethrow;
     }
   }
 
