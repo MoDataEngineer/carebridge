@@ -159,7 +159,11 @@ class DemoDoctorVitalsRepository implements DoctorVitalsRepository {
   }
 }
 
-const bool _demoDoctorVitals = true;
+// Migrations 0034/0035/0036 are deployed (2026-07-28), so the doctor view reads
+// the real RPC. Demo remains the fallback only when Supabase isn't initialized
+// (e.g. a widget test without an override). Set back to true only to demo the
+// trend view without a real phone-synced, vitals-sharing patient.
+const bool _demoDoctorVitals = false;
 
 final doctorVitalsRepositoryProvider = Provider<DoctorVitalsRepository>((ref) {
   if (_demoDoctorVitals || !SupabaseService.isInitialized) {
