@@ -7,6 +7,7 @@ import '../../shared/widgets/theme_toggle_button.dart';
 import '../auth/clinic/clinic_sign_out_button.dart';
 import '../diagnostics/test_orders_view.dart';
 import '../summary/summary_tab.dart';
+import '../vitals/doctor_vitals_tab.dart';
 import 'access_flow_dialogs.dart';
 import 'add_visit_form.dart';
 import 'doctor_dashboard.dart';
@@ -237,7 +238,7 @@ class DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
   Widget _detailView(DoctorScope scope) {
     final p = _selected!;
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -260,11 +261,12 @@ class DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
                 ),
             ],
           ),
-          const TabBar(tabs: [
+          const TabBar(isScrollable: true, tabs: [
             Tab(text: 'Summary'),
             Tab(text: 'History'),
             Tab(text: 'Tests'),
             Tab(text: 'Add visit'),
+            Tab(text: 'Vitals'),
           ]),
           const SizedBox(height: 8),
           Expanded(
@@ -294,6 +296,12 @@ class DoctorWorkspaceScreenState extends ConsumerState<DoctorWorkspaceScreen> {
                         ),
                       )
                     : _adminCannotWrite(),
+                // Vitals trends + adherence (Phase 13). Paid tier (Section 9);
+                // the data call also requires an active wearable grant (enforced
+                // + logged server-side). Admin sessions never auto-inherit.
+                scope.paid
+                    ? DoctorVitalsTab(patientId: p.id)
+                    : _upgradePrompt('Vitals trends are a Pro feature.'),
               ],
             ),
           ),

@@ -35,7 +35,9 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
       final grants = await repo.doctorsWithAccess();
       final requests = await repo.pendingRequests();
       final logs = await repo.whoViewed();
-      return _PrivacyData(grants: grants, requests: requests, logs: logs);
+      final shares = await repo.wearableShares();
+      return _PrivacyData(
+          grants: grants, requests: requests, logs: logs, shares: shares);
     }();
   }
 
@@ -192,18 +194,44 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
             else
               for (final g in d.grants)
                 Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.medical_services),
-                    title: Text('${g.doctorName} · ${g.clinicName}'),
-                    subtitle: Text(g.grantedAt == null
-                        ? g.type
-                        : '${g.type} · since ${g.grantedAt!.toString().substring(0, 10)}'),
-                    trailing: TextButton(
-                      onPressed: () => _run(
-                          () => ref.read(consentRepositoryProvider).revokeGrant(g.grantId),
-                          'Access revoked'),
-                      child: const Text('Revoke'),
-                    ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.medical_services),
+                        title: Text('${g.doctorName} · ${g.clinicName}'),
+                        subtitle: Text(g.grantedAt == null
+                            ? g.type
+                            : '${g.type} · since ${g.grantedAt!.toString().substring(0, 10)}'),
+                        trailing: TextButton(
+                          onPressed: () => _run(
+                              () => ref.read(consentRepositoryProvider).revokeGrant(g.grantId),
+                              'Access revoked'),
+                          child: const Text('Revoke'),
+                        ),
+                      ),
+                      // P13: share wearable/vitals with THIS doctor — a separate,
+                      // revocable scope the patient turns on explicitly. Off by
+                      // default; never implied by the clinical grant above.
+                      SwitchListTile(
+                        value: d.shares.containsKey(g.doctorId),
+                        secondary: const Icon(Icons.favorite_outline),
+                        title: const Text('Share my vitals'),
+                        subtitle: const Text(
+                            'Let this doctor see your steps, sleep & heart-rate trends'),
+                        onChanged: (on) => _run(
+                          () async {
+                            final repo = ref.read(consentRepositoryProvider);
+                            if (on) {
+                              await repo.shareWearables(g.doctorId);
+                            } else {
+                              final gid = d.shares[g.doctorId];
+                              if (gid != null) await repo.revokeWearable(gid);
+                            }
+                          },
+                          on ? 'Vitals shared' : 'Vitals sharing stopped',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -232,8 +260,16 @@ class _PrivacyTabState extends ConsumerState<PrivacyTab> {
 }
 
 class _PrivacyData {
-  const _PrivacyData({required this.grants, required this.requests, required this.logs});
+  const _PrivacyData({
+    required this.grants,
+    required this.requests,
+    required this.logs,
+    required this.shares,
+  });
   final List<GrantView> grants;
   final List<AccessRequestView> requests;
   final List<AccessLogView> logs;
+
+  /// doctorId → active wearable-grant id (P13 "Share my vitals").
+  final Map<String, String> shares;
 }

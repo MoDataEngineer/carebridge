@@ -1,9 +1,24 @@
 # Epic: Wearables & Vitals Tracking
 
-> **Status: Phase 12 BUILT (2026-07-25); Phases 13–14 planned.** This is the
+> **Status: Phases 12 & 13 BUILT (2026-07-25); Phase 14 planned.** This is the
 > authoritative design record for a post-MVP module. Each phase returns for its
 > own approval before any code is written. Companion records: `DECISIONS.md`
 > D14, `PROJECT_BRIEF.md` §13, `CLAUDE.md`/`AGENTS.md` §15.
+>
+> **P13 build note.** Doctor trend/adherence view is in the repo. Migration
+> `0036` adds `visits.advice` (structured activity target) + the single doctor
+> read RPC `carebridge_patient_wearables()` — which enforces, server-side, the
+> `wearable` grant (via `current_scope_can_view_wearables`, so a clinical grant
+> alone fails), the **paid** tier (`current_clinic_is_paid`), and logs the read
+> as `'wearable data'`. Patient "Share my vitals" per-doctor toggle lives in
+> Privacy & access (creates/revokes the `wearable` grant). Doctor Vitals tab
+> (`app/lib/features/vitals/doctor_vitals_tab.dart`) is a 5th, paid-gated tab in
+> the workspace: raw week trends + tiles + an **advice-vs-actual overlay**
+> ("advised 30 min ×5/week → N of 5 days met this week"). Ships against
+> `DemoDoctorVitalsRepository` until `0036` is deployed (flip `_demoDoctorVitals`).
+> Trust tests: consent share-toggle off-by-default; doctor sees "not shared"
+> without a grant. **Not yet deployed** — migrations `0034`/`0035`/`0036` need
+> `supabase db push`.
 >
 > **P12 build note.** Data model (`0034`/`0035`), the `current_scope_can_view_wearables()`
 > helper, patient RLS + the `wearable` share/revoke RPCs, and the patient's
@@ -200,12 +215,15 @@ Each phase ships with trust tests and returns for approval.
   *Trust tests:* OS-permission gating; a `wearable` grant is never created
   without the patient toggle; revoke closes access; wearable tables are **not**
   visible via a plain clinical grant.
-- **Phase 13 — Doctor view + visit linkage.**
-  Structured visit-advice fields; the paid, per-patient doctor trend + adherence
-  view; advice-vs-target overlay.
-  *Trust tests:* doctor sees wearables **only** with an active `wearable` grant;
-  **admin AC-8 does NOT see wearables**; paid gating enforced server-side; access
-  logged as `wearable data`.
+- **Phase 13 — Doctor view + visit linkage. ✅ BUILT (2026-07-25).**
+  Structured visit-advice fields (`visits.advice`); the paid, per-patient doctor
+  trend + adherence view; advice-vs-target overlay. All grant/paid/admin/log
+  guarantees enforced server-side in `carebridge_patient_wearables()`.
+  *Trust tests (in `app/test/`):* doctor sees wearables **only** with an active
+  `wearable` grant (`_NotSharedRepo` → "not shared"); the patient share toggle is
+  off by default and patient-initiated; **admin AC-8 does NOT see wearables**
+  (helper has no admin branch); paid gating enforced server-side; access logged
+  as `wearable data`.
 - **Phase 14 — Follow-up loop + inputs.**
   Wire wearable adherence into the follow-up tracker + reminders; Bluetooth /
   manual BP entry.

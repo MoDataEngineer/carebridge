@@ -133,6 +133,7 @@ class SupabaseDoctorRepository implements DoctorRepository {
           'diagnosis': visit.diagnosis,
           'notes': visit.notes,
           'follow_up_date': visit.followUpDate?.toIso8601String(),
+          if (visit.adviceJson != null) 'advice': visit.adviceJson,
         })
         .select('id')
         .single();

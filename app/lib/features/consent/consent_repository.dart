@@ -15,6 +15,12 @@ abstract class ConsentRepository {
   Future<void> respondRequest(String grantId, bool approve);
   Future<List<AccessLogView>> whoViewed();
   Future<ConsentCode> createConsentCode();
+
+  /// P13 wearable sharing (separate revocable scope, patient-initiated).
+  /// Returns doctorId → wearable-grant-id for every active `wearable` share.
+  Future<Map<String, String>> wearableShares();
+  Future<void> shareWearables(String doctorId);
+  Future<void> revokeWearable(String grantId);
 }
 
 class SupabaseConsentRepository implements ConsentRepository {
@@ -46,6 +52,9 @@ class SupabaseConsentRepository implements ConsentRepository {
         .select('id, granted_to_id, type, granted_at')
         .eq('granted_to_type', 'doctor')
         .eq('status', 'active')
+        // Clinical grants only — 'wearable' shares are surfaced as a per-doctor
+        // toggle (P13), not as their own row in this list.
+        .inFilter('type', ['standing', 'one_time', 'order_scoped'])
         .order('granted_at', ascending: false);
     final list = rows as List;
     final names = await _doctorNames(
@@ -54,6 +63,7 @@ class SupabaseConsentRepository implements ConsentRepository {
       for (final m in list)
         GrantView(
           grantId: m['id'] as String,
+          doctorId: m['granted_to_id'] as String,
           doctorName: names[m['granted_to_id']]?.doctor ?? 'Unknown doctor',
           clinicName: names[m['granted_to_id']]?.clinic ?? '',
           type: (m['type'] ?? 'standing') as String,
@@ -63,6 +73,28 @@ class SupabaseConsentRepository implements ConsentRepository {
         )
     ];
   }
+
+  @override
+  Future<Map<String, String>> wearableShares() async {
+    final rows = await _client
+        .from('access_grants')
+        .select('id, granted_to_id')
+        .eq('granted_to_type', 'doctor')
+        .eq('type', 'wearable')
+        .eq('status', 'active');
+    return {
+      for (final m in rows as List)
+        m['granted_to_id'] as String: m['id'] as String,
+    };
+  }
+
+  @override
+  Future<void> shareWearables(String doctorId) =>
+      _client.rpc('carebridge_share_wearables', params: {'p_doctor': doctorId});
+
+  @override
+  Future<void> revokeWearable(String grantId) =>
+      _client.rpc('carebridge_revoke_wearable', params: {'p_grant': grantId});
 
   @override
   Future<void> revokeGrant(String grantId) =>

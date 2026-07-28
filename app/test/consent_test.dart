@@ -14,6 +14,7 @@ class _FakeConsentRepo implements ConsentRepository {
   final List<GrantView> grants = [
     GrantView(
       grantId: 'g1',
+      doctorId: 'd1',
       doctorName: 'Dr Rao',
       clinicName: 'City Clinic',
       type: 'standing',
@@ -28,8 +29,28 @@ class _FakeConsentRepo implements ConsentRepository {
   bool? respondedApprove;
   String? revoked;
 
+  // P13 wearable sharing: doctorId → wearable-grant-id.
+  final Map<String, String> shares = {};
+  String? sharedWith;
+  String? revokedWearable;
+
   @override
   Future<List<GrantView>> doctorsWithAccess() async => List.of(grants);
+
+  @override
+  Future<Map<String, String>> wearableShares() async => Map.of(shares);
+
+  @override
+  Future<void> shareWearables(String doctorId) async {
+    sharedWith = doctorId;
+    shares[doctorId] = 'w-$doctorId';
+  }
+
+  @override
+  Future<void> revokeWearable(String grantId) async {
+    revokedWearable = grantId;
+    shares.removeWhere((_, v) => v == grantId);
+  }
 
   @override
   Future<void> revokeGrant(String grantId) async {
@@ -124,5 +145,31 @@ void main() {
     await tester.tap(find.text('Generate consent code'));
     await tester.pumpAndSettle();
     expect(find.text('abc123def456'), findsOneWidget);
+  });
+
+  // P13 trust: sharing vitals is patient-initiated (off by default) and creates
+  // a SEPARATE wearable grant — never implied by the clinical grant.
+  testWidgets('vitals sharing is off by default and toggling creates a share',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repo = _FakeConsentRepo();
+    await tester.pumpWidget(_harness(repo));
+    await tester.pumpAndSettle();
+
+    // A clinical grant exists, but vitals are NOT shared until toggled.
+    final toggle = find.byType(SwitchListTile);
+    expect(toggle, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    expect(repo.sharedWith, isNull);
+
+    await tester.tap(find.text('Share my vitals'));
+    await tester.pumpAndSettle();
+
+    expect(repo.sharedWith, 'd1'); // wearable grant created for that doctor
+    expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isTrue);
   });
 }

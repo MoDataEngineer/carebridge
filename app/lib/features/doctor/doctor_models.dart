@@ -90,10 +90,25 @@ class NewVisit {
     this.notes,
     this.followUpDate,
     this.prescriptions = const [],
+    this.activityMinutesTarget,
+    this.activityDaysPerWeek,
   });
 
   final String diagnosis;
   final String? notes;
   final DateTime? followUpDate;
   final List<NewPrescription> prescriptions;
+
+  /// P13 structured advice for the wearable adherence overlay (optional). Stored
+  /// in visits.advice as {activity_minutes_target, days_per_week}.
+  final int? activityMinutesTarget;
+  final int? activityDaysPerWeek;
+
+  /// The advice jsonb payload, or null when no activity target was set.
+  Map<String, dynamic>? get adviceJson => activityMinutesTarget == null
+      ? null
+      : {
+          'activity_minutes_target': activityMinutesTarget,
+          if (activityDaysPerWeek != null) 'days_per_week': activityDaysPerWeek,
+        };
 }

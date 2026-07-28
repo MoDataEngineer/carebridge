@@ -4,6 +4,7 @@
 class GrantView {
   const GrantView({
     required this.grantId,
+    required this.doctorId,
     required this.doctorName,
     required this.clinicName,
     required this.type,
@@ -11,6 +12,7 @@ class GrantView {
   });
 
   final String grantId;
+  final String doctorId;
   final String doctorName;
   final String clinicName;
   final String type; // standing | one_time | order_scoped

@@ -6,6 +6,7 @@ import '../../shared/widgets/metric_ring.dart';
 import '../../shared/widgets/pills_loader.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/vital_tile.dart';
+import '../../shared/widgets/week_bars.dart';
 import 'connect_tracker_screen.dart';
 import 'vitals_models.dart';
 import 'vitals_repository.dart';
@@ -168,7 +169,7 @@ class _VitalsTabState extends ConsumerState<VitalsTab> {
             const SizedBox(height: AppSpacing.xl),
             const SectionHeader('This week · steps'),
             const SizedBox(height: AppSpacing.md),
-            _WeekBars(points: _week),
+            WeekBars(points: _week),
           ],
           if (_workouts.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xl),
@@ -267,56 +268,6 @@ class _NotConnected extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A tiny 7-bar week chart. Bars scale to the week's max; purely a visual of the
-/// raw daily totals (no average line, no target, no interpretation).
-class _WeekBars extends StatelessWidget {
-  const _WeekBars({required this.points});
-  final List<MetricPoint> points;
-
-  static const _dow = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final max = points.map((p) => p.value).fold<double>(1, (a, b) => b > a ? b : a);
-    return SizedBox(
-      height: 120,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final p in points)
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(_compact(p.value),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant)),
-                  const SizedBox(height: 4),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    height: (p.value / max) * 74,
-                    decoration: BoxDecoration(
-                      color: AppColors.brand400,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(_dow[p.date.weekday - 1],
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  static String _compact(double v) =>
-      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0);
 }
 
 class _WorkoutCard extends StatelessWidget {

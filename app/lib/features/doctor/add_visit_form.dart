@@ -31,6 +31,10 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
   final _diagnosis = TextEditingController();
   final _notes = TextEditingController();
   DateTime? _followUp;
+  // P13: optional activity advice → visits.advice, for the wearable adherence
+  // overlay in the doctor's Vitals tab.
+  final _activityMin = TextEditingController();
+  final _activityDays = TextEditingController();
   final List<_PrescriptionDraft> _rx = [_PrescriptionDraft()];
   bool _saving = false;
 
@@ -173,6 +177,8 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
   void dispose() {
     _diagnosis.dispose();
     _notes.dispose();
+    _activityMin.dispose();
+    _activityDays.dispose();
     for (final d in _rx) {
       d.dispose();
     }
@@ -209,6 +215,8 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
               notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
               followUpDate: _followUp,
               prescriptions: prescriptions,
+              activityMinutesTarget: int.tryParse(_activityMin.text.trim()),
+              activityDaysPerWeek: int.tryParse(_activityDays.text.trim()),
             ),
           );
       if (!mounted) return;
@@ -267,6 +275,34 @@ class _AddVisitFormState extends ConsumerState<AddVisitForm> {
             },
             child: const Text('Set'),
           ),
+        ),
+        // Optional activity advice — powers the wearable adherence overlay if
+        // the patient shares vitals (P13). Leave blank to skip.
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _activityMin,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Activity target (min/day)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 110,
+              child: TextField(
+                controller: _activityDays,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'days/wk',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
         ),
         const Divider(height: 24),
         Row(
